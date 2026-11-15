@@ -10,6 +10,12 @@ Corrida 3D de esportes radicais controlada pelo chat da Twitch. Quem digita `!ra
 |---|---|---|
 | ![](docs/escalada.png) | ![](docs/nado.png) | ![](docs/praia.png) |
 
+| Paraquedas | Salto com vara | Gincana maluca |
+|---|---|---|
+| ![](docs/paraquedas.png) | ![](docs/vara.png) | ![](docs/gincana.png) |
+
+![Campeão do campeonato](docs/campeao.png)
+
 ## Usar na live (OBS)
 
 1. Adicione uma **Fonte de navegador** no OBS.
@@ -28,6 +34,7 @@ O jogo conecta sozinho ao chat (leitura anônima, sem login) e começa a rodada 
 | `lobbynext` | `&lobbynext=15` | Segundos de espera entre rodadas |
 | `max` | `&max=40` | Limite de pilotos |
 | `quality` | `&quality=medium` | `ultra`, `high`, `medium` ou `low` |
+| `rodadas` | `&rodadas=5` | Tamanho do campeonato (3, 5, 7, 10…). `0` = rodadas sem fim |
 | `demo` | `?demo` | Modo teste sem Twitch, com bots |
 
 ### Câmera do espectador
@@ -57,9 +64,35 @@ A tecla **C** abre o painel de teste: entrar como piloto, usar as trapaças (tec
 | `!tubarao @nick` | Solta um tubarão em quem está no nado submerso | 40 s |
 | `!sair` | Sai do jogo | — |
 
+## Campeonato
+
+O jogo roda campeonatos (padrão: 5 rodadas; dá para trocar no painel **C** ou com `?rodadas=`). Cada rodada dá pontos (25, 18, 15, 12, 10, 8, 6, 4, 2, 1), e no fim aparece a tela do **campeão**, quem somou mais pontos, com pódio e ranking. Depois começa um campeonato novo.
+
 ## Modalidades e rodadas
 
-Cada rodada mistura modalidades e troca de esporte no meio do percurso: snowboard, esqui, mountain bike, wingsuit, rocket wing, **escalada** num paredão de rocha e **nado submerso** dentro de um túnel de vidro, com cardumes que atrasam e tubarões que pegam um nadador e o arrastam para trás. As rodadas que terminam no mar, incluindo a primeira (Avalanche Run), chegam numa praia.
+A primeira rodada é sempre a Avalanche Run (snowboard, wingsuit, snowboard e nado submerso até a praia). As seguintes são **geradas na hora**: 2 a 4 modalidades sorteadas, nome, céu e regras diferentes, evitando repetir as modalidades da rodada anterior.
+
+| Modalidade | Como funciona |
+|---|---|
+| Snowboard, esqui | Descida na neve |
+| Mountain bike | Trilha de terra com lombadas |
+| Wingsuit, rocket wing | Voo pelo cânion, passando por anéis |
+| Escalada | Paredão de rocha com agarras; quem é atingido escorrega |
+| Nado submerso | Túnel de vidro no mar, com cardumes que atrasam e tubarões que arrastam para trás |
+| **Paraquedas** | Queda livre de um penhasco, abertura do velame e pouso no alvo (centro do alvo dá turbo) |
+| **Salto com vara** | Pista de atletismo com sarrafos; quem erra o salto derruba o sarrafo e cai |
+| **Gincana maluca** | Corrida de saco com braços giratórios, bolas gigantes rolando, camas elásticas e poças de lama |
+
+### Regras especiais (sorteadas por rodada)
+
+| Regra | Efeito |
+|---|---|
+| 🪙 Moedas | Moedas espalhadas pelo percurso; cada 3 valem 1 ponto extra |
+| ❌ Eliminação | A cada 25 s o último colocado é eliminado |
+| ⚡ Turbo em dobro | Turbos duram o dobro |
+| 🌪️ Caos | Eventos aleatórios a cada ~10 s |
+| 🌧️ Tempestade | Céu fechado e mais neblina |
+| 🌙 Gravidade baixa | Saltos muito mais altos (vara, cama elástica, manobras) |
 
 Eventos aleatórios no meio da corrida: vento a favor, avalanche ou deslizamento, neblina, chuva de turbo, terreno instável e reviravolta.
 
@@ -69,7 +102,7 @@ Eventos aleatórios no meio da corrida: vento a favor, avalanche ou deslizamento
 - Terreno, árvores, personagens, plateia, céu e mar são gerados por código a cada rodada; não há modelos nem texturas externas.
 - Renderização: materiais PBR com iluminação do céu, terreno com texturas triplanares e normal maps, sombras das montanhas e oclusão pré-calculadas, sombras de nuvens, neblina de altura com brilho do sol, mar com ondas Gerstner, reflexo do céu, brilho do sol, espuma e espuma na arrebentação, cáusticas e neblina subaquática, grama densa e árvores com vento.
 - Pós-processamento: MSAA, bloom, raios de sol, desfoque radial no turbo, tonemapping AgX e correção de cor. A resolução se ajusta sozinha para manter a fluidez.
-- Trilha sonora e efeitos sintetizados em tempo real com Web Audio (nenhum arquivo de áudio). Cada ambiente tem um tema original no estilo de jogo de plataforma: montanha nevada (sinos e baixo saltitante), trilha radical (rápida, com baixo marcado), céu/wingsuit (a mais rápida, com arpejos), paredão (tensa, com tambores), aquático (calmo, em compasso ternário, com vibrafone e marimba), além de lobby, contagem e resultado. A música troca sozinha quando o piloto em foco muda de ambiente.
+- Trilha sonora e efeitos sintetizados em tempo real com Web Audio (nenhum arquivo de áudio). Cada ambiente tem um tema original no estilo de jogo de plataforma: montanha nevada (sinos e baixo saltitante), trilha radical e pista de atletismo (rápida, com baixo marcado), céu/wingsuit/paraquedas (a mais rápida, com arpejos), paredão (tensa, com tambores), aquático (calmo, em compasso ternário, com vibrafone e marimba), gincana (circense, com bloco de madeira), além de lobby, contagem e resultado/campeão. A música troca sozinha quando o piloto em foco muda de ambiente.
 - Fotos de perfil via [decapi.me](https://decapi.me) e [unavatar.io](https://unavatar.io); se não carregarem, o piloto recebe um avatar gerado.
 
 As técnicas do mar (ondas, brilho do sol, crista iluminada por trás, espuma, tonemapping AgX) foram inspiradas em [noniv/web-ocean](https://github.com/noniv/web-ocean), e o visual subaquático (absorção de luz por cor, névoa que clareia perto da superfície, feixes de luz, cáusticas projetadas pelo sol, floresta de kelp, arraias e bolhas) em [Noniv/abyssal-garden](https://github.com/Noniv/abyssal-garden). Os dois são MIT; a implementação aqui é própria, em WebGL.
