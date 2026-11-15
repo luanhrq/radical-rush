@@ -30,6 +30,15 @@ O jogo conecta sozinho ao chat (leitura anônima, sem login) e começa a rodada 
 | `quality` | `&quality=medium` | `ultra`, `high`, `medium` ou `low` |
 | `demo` | `?demo` | Modo teste sem Twitch, com bots |
 
+### Câmera do espectador
+
+| Ação | Controle |
+|---|---|
+| Trocar de piloto | Scroll do mouse, setas ← →, ou clique no nome na classificação |
+| Girar a câmera em volta do piloto | Arrastar com o mouse |
+| Aproximar / afastar | Shift + scroll |
+| Voltar para a câmera automática | Duplo clique ou tecla A |
+
 A tecla **C** abre o painel de teste: entrar como piloto, usar as trapaças (teclas 1 a 9), adicionar bots, trocar a qualidade gráfica e o canal.
 
 ## Comandos do chat
@@ -56,11 +65,11 @@ Eventos aleatórios no meio da corrida: vento a favor, avalanche ou deslizamento
 
 ## Tecnologia
 
-- Um único `index.html`, sem build. [three.js](https://threejs.org) r160 é carregado da CDN jsDelivr.
+- Um único `index.html`, sem build. A versão aparece no canto superior esquerdo (ex.: `RODADA 1 · v1.4`); se aparecer uma versão antiga, recarregue com Ctrl+Shift+R. [three.js](https://threejs.org) r160 é carregado da CDN jsDelivr.
 - Terreno, árvores, personagens, plateia, céu e mar são gerados por código a cada rodada; não há modelos nem texturas externas.
 - Renderização: materiais PBR com iluminação do céu, terreno com texturas triplanares e normal maps, sombras das montanhas e oclusão pré-calculadas, sombras de nuvens, neblina de altura com brilho do sol, mar com ondas Gerstner, reflexo do céu, brilho do sol, espuma e espuma na arrebentação, cáusticas e neblina subaquática, grama densa e árvores com vento.
 - Pós-processamento: MSAA, bloom, raios de sol, desfoque radial no turbo, tonemapping AgX e correção de cor. A resolução se ajusta sozinha para manter a fluidez.
-- Trilha sonora e efeitos sintetizados em tempo real com Web Audio (nenhum arquivo de áudio). A trilha muda entre lobby, contagem, corrida e resultado, e cada rodada tem andamento e tom próprios.
+- Trilha sonora e efeitos sintetizados em tempo real com Web Audio (nenhum arquivo de áudio). Cada ambiente tem um tema original no estilo de jogo de plataforma: montanha nevada (sinos e baixo saltitante), trilha radical (rápida, com baixo marcado), céu/wingsuit (a mais rápida, com arpejos), paredão (tensa, com tambores), aquático (calmo, em compasso ternário, com vibrafone e marimba), além de lobby, contagem e resultado. A música troca sozinha quando o piloto em foco muda de ambiente.
 - Fotos de perfil via [decapi.me](https://decapi.me) e [unavatar.io](https://unavatar.io); se não carregarem, o piloto recebe um avatar gerado.
 
 As técnicas do mar (ondas, brilho do sol, crista iluminada por trás, espuma, tonemapping AgX) foram inspiradas em [noniv/web-ocean](https://github.com/noniv/web-ocean), e o visual subaquático (absorção de luz por cor, névoa que clareia perto da superfície, feixes de luz, cáusticas projetadas pelo sol, floresta de kelp, arraias e bolhas) em [Noniv/abyssal-garden](https://github.com/Noniv/abyssal-garden). Os dois são MIT; a implementação aqui é própria, em WebGL.
