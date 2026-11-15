@@ -85,6 +85,7 @@ li:nth-child(-n+3) .pos{color:var(--ink)}
 @keyframes pop{from{transform:translate(-50%,-50%) scale(1.8);opacity:0}}
 #spot{position:absolute;left:50%;bottom:calc(76px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);font-size:13px;font-weight:800;padding:4px 14px 4px 5px;border-radius:999px;opacity:0;transition:opacity .3s;display:flex;align-items:center;gap:7px}
 #spot.show{opacity:1}
+#sndHint{position:absolute;left:50%;bottom:calc(112px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);font-size:13px;font-weight:700;padding:8px 16px;border-radius:999px;opacity:0;transition:opacity .4s;pointer-events:none;white-space:nowrap}#sndHint.show{opacity:1;animation:sndp 1.6s ease-in-out infinite}@keyframes sndp{50%{transform:translateX(-50%) scale(1.05)}}
 #specHint{position:absolute;left:50%;top:calc(70px + env(safe-area-inset-top,0px));transform:translateX(-50%);font-size:12.5px;color:var(--ink2);padding:7px 14px;border-radius:999px;opacity:0;transition:opacity .4s;white-space:nowrap;max-width:calc(100% - 32px);overflow:hidden;text-overflow:ellipsis}#specHint b{color:var(--ink)}#specHint.show{opacity:1}
 #standings{pointer-events:auto}#standList li{cursor:pointer;border-radius:8px}#standList li:hover{background:rgba(255,255,255,.06)}#standList li.sel{background:rgba(63,224,255,.14)}
 /* full screens */
@@ -184,6 +185,7 @@ li:nth-child(-n+3) .pos{color:var(--ink)}
   <div id="feed"></div>
   <div id="progress" class="hidden"><div id="progSegs"></div><div id="progDots"></div></div>
   <div id="spot" class="glass"></div>
+  <div id="sndHint" class="glass">🔊 Clique em qualquer lugar para ligar o som</div>
   <div id="specHint" class="glass">🖱️ <b>Scroll</b> troca de piloto · <b>arraste</b> para girar · <b>Shift+scroll</b> aproxima · <b>duplo clique</b> volta ao automático</div>
   <div id="banner"><div class="b1"></div><div class="b2"></div></div>
   <div id="countdown"></div>
@@ -236,7 +238,7 @@ import {RoundedBoxGeometry} from 'three/addons/geometries/RoundedBoxGeometry.js'
 // ======================================================================
 // CONFIG
 // ======================================================================
-const VERSION='1.5';
+const VERSION='1.6';
 const LS={get(k,d){try{const v=localStorage.getItem('rr.'+k);return v==null?d:v}catch(e){return d}},set(k,v){try{localStorage.setItem('rr.'+k,v)}catch(e){}}};
 const Q=new URLSearchParams(location.search);
 const CFG={
@@ -1941,10 +1943,10 @@ function botThink(r,dt){if(!r.isBot||G.state!=='race'||r.finished)return;r.botT-
 // ======================================================================
 // AUDIO — trilha e efeitos 100% procedurais (WebAudio, sem arquivos)
 // ======================================================================
-const AU={ctx:null,on:LS.get('sound','1')==='1',vol:.8,last:{}};
+const AU={ctx:null,on:LS.get('sound2','1')==='1',vol:.8,last:{}};
 function audioInit(){
   if(AU.ctx)return AU.ctx;const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return null;
-  const c=AU.ctx=new AC();
+  const c=AU.ctx=new AC();c.onstatechange=()=>{if(c.state==='running'&&!AU.startedAt)AU.startedAt=performance.now();updSndBtn()};
   AU.master=c.createGain();AU.master.gain.value=AU.on?AU.vol:0;
   const comp=c.createDynamicsCompressor();comp.threshold.value=-16;comp.ratio.value=4;comp.attack.value=.004;comp.release.value=.22;AU.master.connect(comp);comp.connect(c.destination);
   AU.musicLP=c.createBiquadFilter();AU.musicLP.type='lowpass';AU.musicLP.frequency.value=18000;AU.musicLP.connect(AU.master);
@@ -1959,8 +1961,8 @@ function audioInit(){
   MUS.next=c.currentTime+.15;if(!MUS.mel.snow)setMusicRound(G.round);setInterval(musicTick,25);
   return c;
 }
-function audioUnlock(){const c=audioInit();if(c&&c.state!=='running')c.resume().catch(()=>{});updSndBtn()}
-function updSndBtn(){const b=$('btnSnd');if(!b)return;const run=AU.ctx&&AU.ctx.state==='running';b.textContent=!AU.on?'SOM: OFF':run?'SOM: ON':'ATIVAR SOM';b.setAttribute('aria-pressed',AU.on?'true':'false')}
+function audioUnlock(){const c=audioInit();if(c&&c.state!=='running')c.resume().then(updSndBtn).catch(()=>{});updSndBtn()}
+function updSndBtn(){const b=$('btnSnd');if(!b)return;const run=AU.ctx&&AU.ctx.state==='running';b.textContent=!AU.on?'SOM: OFF':run?'SOM: ON':'🔊 LIGAR SOM';b.setAttribute('aria-pressed',AU.on?'true':'false');const h=$('sndHint');if(h)h.classList.toggle('show',AU.on&&!run)}
 function tone(type,freq,t,dur,vol,dest,o={}){const c=AU.ctx,os=c.createOscillator();if(type==='pulse')os.setPeriodicWave(pw25());else os.type=type;if(o.vib){const l=c.createOscillator(),lg=c.createGain();l.frequency.value=o.vibR||5.5;lg.gain.setValueAtTime(0,t);lg.gain.linearRampToValueAtTime(freq*.012*o.vib,t+Math.min(.25,dur*.6));l.connect(lg);lg.connect(os.frequency);l.start(t);l.stop(t+dur+.05)}os.frequency.setValueAtTime(freq,t);if(o.to)os.frequency.exponentialRampToValueAtTime(o.to,t+(o.glide||dur));if(o.det)os.detune.value=o.det;
   const g=c.createGain();g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(vol,t+(o.a||.005));g.gain.exponentialRampToValueAtTime(1e-4,t+dur);let n=os;
   if(o.lp){const f=c.createBiquadFilter();f.type='lowpass';f.frequency.setValueAtTime(o.lp,t);if(o.lpTo)f.frequency.exponentialRampToValueAtTime(o.lpTo,t+dur);f.Q.value=o.q||1;n.connect(f);n=f}
@@ -2073,8 +2075,9 @@ function updateAudio(dt){if(!AU.ctx||AU.ctx.state!=='running')return;const t=AU.
   AU.musicLP.frequency.setTargetAtTime(under?2600:18000,t,.3);
   MUS.int=G.state==='race'&&G.rank[0]?clamp(G.rank[0].s/W.FIN,0,1):0;
   const S=G.state;MUS.want=S==='intro'?'intro':S==='results'?'results':S==='race'&&f?(THEME_OF[MODS[f.mod||'snowboard'].surface]||'snow'):'lobby';}
-['pointerdown','keydown','touchstart'].forEach(ev=>addEventListener(ev,audioUnlock,{passive:true}));
-$('btnSnd').onclick=()=>{audioUnlock();AU.on=!AU.on;LS.set('sound',AU.on?'1':'0');if(AU.master)AU.master.gain.setTargetAtTime(AU.on?AU.vol:0,AU.ctx.currentTime,.05);updSndBtn()};
+['pointerdown','keydown','touchstart'].forEach(ev=>addEventListener(ev,e=>{if(e.target&&e.target.closest&&e.target.closest('#btnSnd')){AU.downLabel=$('btnSnd').textContent;return}audioUnlock()},{passive:true,capture:true}));
+$('btnSnd').onclick=e=>{e.stopPropagation();const shown=AU.downLabel||e.currentTarget.textContent;AU.downLabel=null;const wasRunning=shown.indexOf('SOM: ')===0;audioUnlock();AU.on=wasRunning?!AU.on:true;LS.set('sound2',AU.on?'1':'0');if(AU.master)AU.master.gain.setTargetAtTime(AU.on?AU.vol:0,AU.ctx.currentTime,.05);setTimeout(updSndBtn,150)};
+setInterval(()=>{if(AU.ctx&&AU.on&&AU.ctx.state!=='running')AU.ctx.resume().then(updSndBtn).catch(()=>{});else updSndBtn()},1500);
 
 // ======================================================================
 // LOOP
@@ -2140,7 +2143,7 @@ function frame(){
 // ======================================================================
 // BOOT
 // ======================================================================
-window.radical={handleChat,G,racers,camera,renderer,scene,terrainH,trackAt,CTA,get W(){return W},addBots,CAM,snap(){for(let i=0;i<80;i++){for(const r of racers.values())updateRacer(r,.02,G.clock);G.rank=ranking();updateCamera(.08,G.clock)}return[camera.position.toArray().map(v=>+v.toFixed(1)),CAM.look.toArray().map(v=>+v.toFixed(1))]}};
+window.radical={handleChat,G,racers,camera,renderer,scene,terrainH,trackAt,CTA,get W(){return W},addBots,CAM,get AU(){return AU},snap(){for(let i=0;i<80;i++){for(const r of racers.values())updateRacer(r,.02,G.clock);G.rank=ranking();updateCamera(.08,G.clock)}return[camera.position.toArray().map(v=>+v.toFixed(1)),CAM.look.toArray().map(v=>+v.toFixed(1))]}};
 window.claude?.hot?.snapshot?.(()=>({session:[...session.entries()]}));
 async function boot(){
   try{await Promise.race([document.fonts?document.fonts.ready:Promise.resolve(),new Promise(r=>setTimeout(r,2500))])}catch(e){}
