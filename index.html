@@ -236,7 +236,7 @@ import {RoundedBoxGeometry} from 'three/addons/geometries/RoundedBoxGeometry.js'
 // ======================================================================
 // CONFIG
 // ======================================================================
-const VERSION='1.4';
+const VERSION='1.5';
 const LS={get(k,d){try{const v=localStorage.getItem('rr.'+k);return v==null?d:v}catch(e){return d}},set(k,v){try{localStorage.setItem('rr.'+k,v)}catch(e){}}};
 const Q=new URLSearchParams(location.search);
 const CFG={
@@ -1568,12 +1568,20 @@ let hazards=[],missiles=[];
 function fixColor(c){const col=new THREE.Color(/^#[0-9a-f]{6}$/i.test(c||'')?c:new THREE.Color().setHSL(Math.random(),.85,.55));const h={};col.getHSL(h);if(h.l<.4)h.l=.45;if(h.l>.72)h.l=.68;if(h.s<.45)h.s=.7;col.setHSL(h.h,h.s,h.l);return'#'+col.getHexString()}
 const avatarCache=new Map();
 function loadImg(url){return new Promise((res,rej)=>{const i=new Image();i.crossOrigin='anonymous';const to=setTimeout(()=>rej('timeout'),9000);i.onload=()=>{clearTimeout(to);res(i)};i.onerror=e=>{clearTimeout(to);rej(e)};i.src=url})}
+const AVSTAT={ok:0,html:0,fail:0};
 function getAvatar(login){
   if(avatarCache.has(login))return avatarCache.get(login);
   const p=(async()=>{
-    try{const r=await fetch('https://decapi.me/twitch/avatar/'+encodeURIComponent(login));const u=(await r.text()).trim();if(/^https:\/\//.test(u)){try{return{img:await loadImg(u),url:u}}catch(e){}}}catch(e){}
-    try{const u='https://unavatar.io/twitch/'+encodeURIComponent(login)+'?fallback=false';return{img:await loadImg(u),url:u}}catch(e){}
-    return null})();
+    // 1) decapi devolve o endereço da foto de perfil da Twitch
+    let url=null;
+    try{const r=await fetch('https://decapi.me/twitch/avatar/'+encodeURIComponent(login));const u=(await r.text()).trim();if(/^https:\/\//.test(u))url=u}catch(e){console.info('[foto]',login,'decapi falhou',e&&e.message)}
+    // 2) tenta a imagem direto, depois por um proxy de imagens com CORS, depois o unavatar
+    const tries=[];if(url){tries.push(url,'https://images.weserv.nl/?url='+encodeURIComponent(url)+'&w=256&h=256&fit=cover')}
+    tries.push('https://unavatar.io/twitch/'+encodeURIComponent(login)+'?fallback=false');
+    for(const u of tries){try{const img=await loadImg(u);AVSTAT.ok++;console.info('[foto]',login,'ok',u);return{img,url:u}}catch(e){}}
+    // 3) sem CORS: a foto ainda aparece no placar (HTML), e o boneco usa as iniciais
+    if(url){AVSTAT.html++;console.info('[foto]',login,'só no placar',url);return{img:null,url}}
+    AVSTAT.fail++;console.info('[foto]',login,'sem foto');return null})();
   avatarCache.set(login,p);return p;
 }
 function botAvatar(name,color){const c=document.createElement('canvas');c.width=c.height=128;const x=c.getContext('2d');const g=x.createLinearGradient(0,0,128,128);g.addColorStop(0,color);g.addColorStop(1,new THREE.Color(color).offsetHSL(.12,0,-.2).getStyle());x.fillStyle=g;x.fillRect(0,0,128,128);
@@ -1603,7 +1611,7 @@ function createRacer(login,name,color,isBot){
   const r={login,name,color,isBot,m,root:m.root,s:0,lat:0,latT:0,latV:0,latTimer:0,v:0,skill:1,phase:rand(0,10),mod:'',fx:{boost:0,stun:0,slow:0,shield:0,trick:0,stuck:0},cd:{},finished:false,place:0,time:0,emit:0,trickKind:0,botT:rand(2,6),pedal:0,wheel:0};
   racers.set(login,r);
   if(isBot){const c=botAvatar(name,color);applyAvatar(r,c,c.toDataURL('image/png'))}
-  else getAvatar(login).then(a=>{if(a)applyAvatar(r,a.img,a.url);else{const c=botAvatar(name,r.color);applyAvatar(r,c,c.toDataURL('image/png'))}});
+  else getAvatar(login).then(a=>{if(a&&a.img)applyAvatar(r,a.img,a.url);else{const c=botAvatar(name,r.color);applyAvatar(r,c,a&&a.url?a.url:c.toDataURL('image/png'))}});
   return r;
 }
 function removeRacer(r){disposeRider(r.m);racers.delete(r.login)}
@@ -1875,7 +1883,8 @@ $('padChan').value=CFG.channel;$('btnChan').onclick=()=>{const ch=$('padChan').v
 $('btnPad').onclick=()=>$('pad').classList.toggle('show');
 function updatePad(){const r=racers.get(ME);$('btnJoin').textContent=r||pending.has(ME)?'SAIR':'ENTRAR';
   document.querySelectorAll('#padCmds button').forEach(b=>{const c=b.dataset.cmd;const can=r&&G.state==='race'&&!r.finished;const left=r?Math.max(0,(r.cd[c]||0)-G.clock):0;b.disabled=!can||left>0;b.style.setProperty('--cd',r&&left>0?(left/COOL[c]).toFixed(3):0)});
-  $('padNote').textContent=G.twitch==='ok'?`Conectado ao chat de #${CFG.channel}. Use este painel só para testar.`:G.twitch==='blocked'?'Este visualizador não permite conexão com a Twitch. Teste aqui com os botões; no OBS o chat conecta sozinho.':'Conectando ao chat da Twitch…'}
+  const fot=`Fotos de perfil: ${AVSTAT.ok} carregadas${AVSTAT.html?` · ${AVSTAT.html} só no placar`:''}${AVSTAT.fail?` · ${AVSTAT.fail} sem foto`:''}.`;
+  $('padNote').textContent=G.twitch==='ok'?`Conectado ao chat de #${CFG.channel}. ${fot}`:G.twitch==='blocked'?'Este visualizador não permite conexão com a Twitch. Teste aqui com os botões; no OBS o chat conecta sozinho.':'Conectando ao chat da Twitch…'}
 addEventListener('keydown',e=>{if(e.target.tagName==='INPUT'||e.target.tagName==='SELECT')return;if(e.key==='c'||e.key==='C')$('pad').classList.toggle('show');const n=+e.key;if(n>=1&&n<=9)handleChat(ME,myName(),null,'!'+PAD_CMDS[n-1][0])});
 
 // ---- câmera do espectador: scroll troca de piloto, arrastar gira, Shift+scroll aproxima, duplo clique volta ao automático
