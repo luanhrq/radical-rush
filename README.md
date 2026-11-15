@@ -50,7 +50,7 @@ A tecla **C** abre o painel de teste: entrar como piloto, usar as trapaças (tec
 
 ## Modalidades e rodadas
 
-Cada rodada mistura modalidades e troca de esporte no meio do percurso: snowboard, esqui, mountain bike, wingsuit, rocket wing, **escalada** num paredão de rocha e **nado submerso** dentro de um túnel de vidro, com cardumes que atrasam e tubarões que pegam um nadador e o arrastam para trás. As rodadas que terminam no mar chegam numa praia.
+Cada rodada mistura modalidades e troca de esporte no meio do percurso: snowboard, esqui, mountain bike, wingsuit, rocket wing, **escalada** num paredão de rocha e **nado submerso** dentro de um túnel de vidro, com cardumes que atrasam e tubarões que pegam um nadador e o arrastam para trás. As rodadas que terminam no mar, incluindo a primeira (Avalanche Run), chegam numa praia.
 
 Eventos aleatórios no meio da corrida: vento a favor, avalanche ou deslizamento, neblina, chuva de turbo, terreno instável e reviravolta.
 
@@ -63,4 +63,4 @@ Eventos aleatórios no meio da corrida: vento a favor, avalanche ou deslizamento
 - Trilha sonora e efeitos sintetizados em tempo real com Web Audio (nenhum arquivo de áudio). A trilha muda entre lobby, contagem, corrida e resultado, e cada rodada tem andamento e tom próprios.
 - Fotos de perfil via [decapi.me](https://decapi.me) e [unavatar.io](https://unavatar.io); se não carregarem, o piloto recebe um avatar gerado.
 
-As técnicas do mar (ondas, brilho do sol, crista iluminada por trás, espuma, tonemapping AgX) foram inspiradas na descrição do projeto [noniv/web-ocean](https://github.com/noniv/web-ocean) (MIT). A implementação aqui é própria, em WebGL.
+As técnicas do mar (ondas, brilho do sol, crista iluminada por trás, espuma, tonemapping AgX) foram inspiradas em [noniv/web-ocean](https://github.com/noniv/web-ocean), e o visual subaquático (absorção de luz por cor, névoa que clareia perto da superfície, feixes de luz, cáusticas projetadas pelo sol, floresta de kelp, arraias e bolhas) em [Noniv/abyssal-garden](https://github.com/Noniv/abyssal-garden). Os dois são MIT; a implementação aqui é própria, em WebGL.
