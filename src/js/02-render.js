@@ -24,13 +24,13 @@ const GradeShader={
   float hsh(vec2 p){return fract(sin(dot(p,vec2(12.9898,78.233)))*43758.5453);}
   void main(){
     vec2 uv=vUv;if(uUW>0.)uv+=vec2(sin(uv.y*38.+uTime*2.6),cos(uv.x*31.+uTime*2.1))*.0028*uUW;vec2 dc=uv-.5;float asp=uRes.x/uRes.y;
-    float ca=.0012+uBoost*.0035;vec3 col=vec3(0.);
-    if(uBoost>.01){for(int i=0;i<8;i++){float t=float(i)/7.;vec2 o=dc*t*.07*uBoost;col.r+=texture2D(tDiffuse,uv-o-dc*ca).r;col.g+=texture2D(tDiffuse,uv-o).g;col.b+=texture2D(tDiffuse,uv-o+dc*ca).b;}col/=8.;}
+    float ca=.0003+uBoost*.0035;vec3 col=vec3(0.);
+    if(uBoost>.01){for(int i=0;i<8;i++){float t=float(i)/7.;vec2 o=dc*t*.045*uBoost;col.r+=texture2D(tDiffuse,uv-o-dc*ca).r;col.g+=texture2D(tDiffuse,uv-o).g;col.b+=texture2D(tDiffuse,uv-o+dc*ca).b;}col/=8.;}
     else{col.r=texture2D(tDiffuse,uv-dc*ca).r;col.g=texture2D(tDiffuse,uv).g;col.b=texture2D(tDiffuse,uv+dc*ca).b;}
     if(uSharp>0.){vec2 px=1./uRes;vec3 nb=texture2D(tDiffuse,uv+vec2(px.x,0.)).rgb+texture2D(tDiffuse,uv-vec2(px.x,0.)).rgb+texture2D(tDiffuse,uv+vec2(0.,px.y)).rgb+texture2D(tDiffuse,uv-vec2(0.,px.y)).rgb;vec3 lap=col-nb*.25;col=max(col+lap*uSharp/(1.+abs(lap)*2.),0.);}
-    if(uRays>.5&&uSunVis>.01){vec2 dir=uSunUV-uv;float acc=0.;float j=hsh(uv*uRes+uTime);
-      for(int i=0;i<14;i++){float t=(float(i)+j)/14.;vec3 s=texture2D(tDiffuse,uv+dir*t*.92).rgb;acc+=smoothstep(1.8,5.,dot(s,vec3(.3,.5,.2)));}
-      acc/=14.;float fall=exp(-length(dir*vec2(asp,1.))*2.4);col+=uSunTint*acc*fall*uSunVis*.75;
+    if(uRays>.5&&uSunVis>.01){vec2 dir=uSunUV-uv;float acc=0.;float j=fract(52.9829189*fract(dot(gl_FragCoord.xy,vec2(.06711056,.00583715))));
+      for(int i=0;i<20;i++){float t=(float(i)+j)/20.;vec3 s=texture2D(tDiffuse,uv+dir*t*.92).rgb;acc+=smoothstep(1.8,5.,dot(s,vec3(.3,.5,.2)));}
+      acc/=20.;float fall=exp(-length(dir*vec2(asp,1.))*2.4);col+=uSunTint*acc*fall*uSunVis*.75;
       vec2 sv=(uv-uSunUV)*vec2(asp,1.);col+=uSunTint*uSunVis*.06*exp(-dot(sv,sv)*30.);
       for(int g=1;g<4;g++){vec2 gp=mix(uSunUV,vec2(.5),float(g)*.55);vec2 gd=(uv-gp)*vec2(asp,1.);float r=.025*float(g);col+=uSunTint*uSunVis*.035*smoothstep(r,r*.6,length(gd));}}
     col=mix(col,col*vec3(.92,1.,1.04),uUW);col*=uExp*1.15*mix(1.,.9,uUW);col=agx(col);col=toSRGB(col);
@@ -38,7 +38,7 @@ const GradeShader={
     col=mix(col,col*col*(3.-2.*col),.2+uUW*.25);
     col+=vec3(-.012,.0,.016)*(1.-l)+vec3(.016,.007,-.012)*l;
     float v=smoothstep(1.05,.3,length(dc*vec2(asp,1.)*.9));col*=mix(.7,1.,v);
-    col+=(hsh(uv*uRes+fract(uTime)*91.)-.5)*.02;
+    col+=(fract(52.9829189*fract(dot(gl_FragCoord.xy,vec2(.06711056,.00583715))))-.5)/255.;
     gl_FragColor=vec4(clamp(col,0.,1.),1.);
   }`
 };
@@ -60,7 +60,8 @@ function setupPost(){
   if(!GTAOPass.prototype._rrFix){const sg=GTAOPass.prototype.setGBuffer;GTAOPass.prototype.setGBuffer=function(d,n){if(d!==undefined&&!this.normalRenderTarget)this.normalRenderTarget={depthTexture:d,setSize(){},dispose(){}};return sg.call(this,d,n)};GTAOPass.prototype._rrFix=1}
   if(QL.ao){try{post.ao=new GTAOPass(scene,camera,innerWidth,innerHeight,{depthTexture:dtex},{radius:2.4,distanceExponent:1.4,thickness:3,scale:1.1,samples:QL.ao,distanceFallOff:1,screenSpaceRadius:false});post.ao.blendIntensity=.9;comp.addPass(post.ao);comp.addPass(new ShaderPass({uniforms:{tDiffuse:{value:null}},vertexShader:`varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,fragmentShader:`uniform sampler2D tDiffuse;varying vec2 vUv;void main(){vec4 c=texture2D(tDiffuse,vUv);if(!(c==c)||!(c.r+c.g+c.b<1e4))c=vec4(0.,0.,0.,1.);gl_FragColor=vec4(clamp(c.rgb,0.,64.),1.);}`}))}catch(e){console.warn('AO',e);post.ao=null}}
   if(QL.bloom){post.bloom=new UnrealBloomPass(new THREE.Vector2(innerWidth/2,innerHeight/2),.42,.6,2.2);comp.addPass(post.bloom)}else post.bloom=null;
-  post.grade=new ShaderPass(GradeShader);comp.addPass(post.grade);post.grade.uniforms.uSharp.value=QL.ao?.24:.16;
+  post.grade=new ShaderPass(GradeShader);comp.addPass(post.grade);post.grade.uniforms.uSharp.value=.14;
+  post.fxaa=null;if(QL.fxaa){post.fxaa=new ShaderPass(FXAAShader);comp.addPass(post.fxaa)}
   post.composer=comp;resize();
   scene.traverse(o=>{if(o.material){(Array.isArray(o.material)?o.material:[o.material]).forEach(m=>m.needsUpdate=true)}});
 }
@@ -68,7 +69,7 @@ function resize(){
   const pr=Math.min(devicePixelRatio||1,QL.pr)*DR;
   renderer.setPixelRatio(pr);renderer.setSize(innerWidth,innerHeight);
   camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();
-  if(post.composer){post.composer.setPixelRatio(pr);post.composer.setSize(innerWidth,innerHeight);post.grade.uniforms.uRes.value.set(innerWidth*pr,innerHeight*pr);if(post.sceneRT)post.sceneRT.setSize(Math.floor(innerWidth*pr),Math.floor(innerHeight*pr));if(post.ao&&QL.aoHalf)post.ao.setSize(Math.floor(innerWidth*pr*.5),Math.floor(innerHeight*pr*.5))}
+  if(post.composer){post.composer.setPixelRatio(pr);post.composer.setSize(innerWidth,innerHeight);post.grade.uniforms.uRes.value.set(innerWidth*pr,innerHeight*pr);if(post.sceneRT)post.sceneRT.setSize(Math.floor(innerWidth*pr),Math.floor(innerHeight*pr));if(post.fxaa)post.fxaa.material.uniforms.resolution.value.set(1/(innerWidth*pr),1/(innerHeight*pr));if(post.ao&&QL.aoHalf)post.ao.setSize(Math.floor(innerWidth*pr*.5),Math.floor(innerHeight*pr*.5))}
   PSYS.forEach(p=>p.mat.uniforms.scale.value=innerHeight*pr*.5);
 }
 addEventListener('resize',resize);
@@ -114,16 +115,16 @@ function setShadowRes(){sun.shadow.mapSize.set(QL.shadow,QL.shadow);if(sun.shado
 setShadowRes();
 
 const SKIES={
-  day:{top:0x2c6fd8,hor:0xbdd8f2,sun:0xfff1dc,sunI:3.7,elev:.78,az:.7,exp:1.0,fog:[.0032,.0055,.00010],cloud:[.42,.6],ground:0x5d6152,mul:1.35},
-  golden:{top:0x3567c2,hor:0xffcf9c,sun:0xffb874,sunI:3.4,elev:.3,az:2.3,exp:1.06,fog:[.0034,.0050,.00011],cloud:[.48,.65],ground:0x6b5a45,mul:1.3},
-  sunset:{top:0x1d2a66,hor:0xff8a5a,sun:0xff8f50,sunI:3.0,elev:.18,az:-2.5,exp:1.15,fog:[.0033,.0050,.00011],cloud:[.52,.55],ground:0x4a3a40,mul:1.25},
-  crisp:{top:0x1648b2,hor:0xd4eaff,sun:0xffffff,sunI:3.9,elev:.55,az:-.9,exp:.95,fog:[.0024,.0060,.00008],cloud:[.3,.5],ground:0x8090a0,mul:1.4},
+  day:{haze:0x9fbfe0,top:0x2c6fd8,hor:0xbdd8f2,sun:0xfff1dc,sunI:3.7,elev:.78,az:.7,exp:1.0,fog:[.0032,.0055,.00010],cloud:[.42,.6],ground:0x5d6152,mul:1.35},
+  golden:{haze:0xb7bcc9,top:0x3567c2,hor:0xffcf9c,sun:0xffb874,sunI:3.4,elev:.3,az:2.3,exp:1.06,fog:[.0029,.0050,.0001],cloud:[.48,.65],ground:0x6b5a45,mul:1.3},
+  sunset:{haze:0x9f9bbb,top:0x24347a,hor:0xf89868,sun:0xffa873,sunI:3.1,elev:.2,az:-2.5,exp:1.15,fog:[.0026,.0050,.00009],cloud:[.52,.55],ground:0x4a3a40,mul:1.25},
+  crisp:{haze:0xa8c6ea,top:0x1648b2,hor:0xd4eaff,sun:0xffffff,sunI:3.9,elev:.55,az:-.9,exp:.95,fog:[.0024,.0060,.00008],cloud:[.3,.5],ground:0x8090a0,mul:1.4},
 };
 const SUN_DIR=new V3();let SKY=SKIES.day;
 function applySky(k,baseH){
   const S=SKY=SKIES[k];
   FOGU.uSkyTop.value.setHex(S.top).multiplyScalar(S.mul);FOGU.uSkyHor.value.setHex(S.hor).multiplyScalar(S.mul);
-  FOGU.uSunCol.value.setHex(S.sun);FOGU.uGround.value.setHex(S.ground).multiplyScalar(.6);
+  FOGU.uFogTint.value.setHex(S.haze).multiplyScalar(S.mul*.9);FOGU.uSunCol.value.setHex(S.sun);FOGU.uGround.value.setHex(S.ground).multiplyScalar(.6);
   SUN_DIR.set(Math.cos(S.elev)*Math.sin(S.az),Math.sin(S.elev),Math.cos(S.elev)*Math.cos(S.az)).normalize();
   FOGU.uSunDir.value.copy(SUN_DIR);
   FOGU.uFogP.value.set(S.fog[0],S.fog[1],baseH,S.fog[2]);FOGU.uCloud.value.set(S.cloud[0],S.cloud[1]);

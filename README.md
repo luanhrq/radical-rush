@@ -38,6 +38,7 @@ O jogo conecta sozinho ao chat (leitura anônima, sem login) e começa a rodada 
 | `quality` | `&quality=medium` | `ultra`, `high`, `medium` ou `low` |
 | `rodadas` | `&rodadas=5` | Tamanho do campeonato (3, 5, 7, 10…). `0` = rodadas sem fim |
 | `demo` | `?demo` | Modo teste sem Twitch, com bots |
+| `segs` | `?demo&segs=bike,paraquedas&sky=sunset` | Monta uma rodada fixa para testar trechos. Modalidades: `snowboard`, `ski`, `bike`, `wingsuit`, `rocket`, `escalada`, `nado`, `paraquedas`, `remo`, `windsurf`, `skate`. Céus: `day`, `golden`, `sunset`, `crisp` |
 
 ### Câmera do espectador
 
@@ -81,7 +82,7 @@ A primeira rodada é sempre a Avalanche Run (snowboard, wingsuit, snowboard e na
 | Wingsuit, rocket wing | Voo pelo cânion, passando por anéis |
 | Escalada | Paredão de rocha com agarras; quem é atingido escorrega |
 | Nado submerso | Túnel de vidro no mar, com cardumes que atrasam e tubarões que arrastam para trás. Quando é o último trecho, os nadadores saem da água e correm pela praia até o pórtico de chegada |
-| **Paraquedas** | Salto da plataforma no penhasco (com helicóptero), queda livre entre nuvens, abertura do velame retangular de células (com slider e linhas), curvas inclinando o velame, arredondamento no pouso e área de pouso com alvo de cascalho, biruta, hangar e avião. Pousar no centro do alvo dá turbo |
+| **Paraquedas** | Salto da plataforma no penhasco (com helicóptero), queda livre, abertura do velame retangular de células com linhas em cascata, curvas inclinando o velame e arredondamento antes do toque. Os pilotos pousam no alvo de cascalho da área de pouso (biruta, hangar, avião, público) e terminam o trecho correndo, com o velame murchando no chão atrás deles. Pousar no centro do alvo dá turbo |
 | **Remo** | Regata num rio com raias de boias, pontões numerados, torre de largada, ponte de pedra em arco com público, arquibancada coberta, garagens de barcos e placas de distância. Cada barco fica na sua raia e o remador rema de costas para a proa, como numa regata de verdade: desliza no carrinho e as pás deixam círculos na água |
 | **Windsurf** | Mar aberto com boias; a prancha acompanha as ondas e às vezes salta na crista |
 | **Skate downhill** | Descida de longboard numa estrada de serra em curvas, com guard-rail, fardos de feno na parte de fora das curvas, placas de curva e paredão de rocha. Os pilotos descem agachados (tuck) |
@@ -100,11 +101,11 @@ Eventos aleatórios no meio da corrida: vento a favor, avalanche ou deslizamento
 
 ## Tecnologia
 
-- O jogo publicado é um único `index.html`, gerado a partir dos módulos em `src/` (veja **Código** abaixo). A versão aparece no canto superior esquerdo (ex.: `RODADA 1 · v1.9`); se aparecer uma versão antiga, recarregue com Ctrl+Shift+R. [three.js](https://threejs.org) r160 é carregado da CDN jsDelivr.
+- O jogo publicado é um único `index.html`, gerado a partir dos módulos em `src/` (veja **Código** abaixo). A versão aparece no canto superior esquerdo (ex.: `RODADA 1 · v2.0`); se aparecer uma versão antiga, recarregue com Ctrl+Shift+R. [three.js](https://threejs.org) r160 é carregado da CDN jsDelivr.
 - Terreno, árvores, personagens, plateia, céu e mar são gerados por código a cada rodada; não há modelos nem texturas externas.
 - Renderização: materiais PBR com iluminação do céu, terreno com texturas triplanares e normal maps, sombras das montanhas e oclusão pré-calculadas, sombras de nuvens, neblina de altura com brilho do sol, mar com ondas Gerstner, reflexo do céu, brilho do sol, espuma e espuma na arrebentação, cáusticas e neblina subaquática, grama densa e árvores com vento.
 - Texturas geradas em alta resolução (1024 px) com cor e relevo próprios para rocha (fissuras, estratos, líquen), grama (dezenas de milhares de folhas), neve e terra, misturadas em duas escalas para não repetir.
-- Pós-processamento: MSAA, oclusão ambiente GTAO em resolução cheia (sombras de contato; qualidade Ultra), bloom, raios de sol, desfoque radial no turbo, tonemapping AgX e correção de cor. A resolução se ajusta sozinha para manter a fluidez.
+- Pós-processamento: MSAA, FXAA, oclusão ambiente GTAO em resolução cheia (sombras de contato; qualidade Ultra), bloom, raios de sol, desfoque radial no turbo, tonemapping AgX e correção de cor, sem ruído de filme. A resolução se ajusta sozinha para manter a fluidez, mas não desce abaixo de 72% no Alto; o painel **C** mostra a resolução e os fps atuais.
 - Trilha sonora e efeitos sintetizados em tempo real com Web Audio (nenhum arquivo de áudio). Cada ambiente tem um tema original no estilo de jogo de plataforma: montanha nevada (sinos e baixo saltitante), trilha radical, skate e remo (rápida, com baixo marcado), céu/wingsuit/paraquedas (a mais rápida, com arpejos), paredão (tensa, com tambores), aquático (calmo, em compasso ternário, com vibrafone e marimba), além de lobby, contagem e resultado/campeão. A música troca sozinha quando o piloto em foco muda de ambiente.
 - O corpo do piloto é uma malha contínua com esqueleto (skinning): tronco, braços e pernas se dobram sem emendas em ombros, cotovelos, quadris e joelhos, com traje em recortes de cor, luvas com dedos, joelheiras e cabeça com maxilar e queixo.
 - O piloto é montado a partir da foto de perfil da Twitch: as cores do traje, do capacete e do equipamento saem das cores principais da foto, a foto vira o rosto do personagem e aparece no peito, nas costas e no capacete. Fotos de perfil via [decapi.me](https://decapi.me) e [unavatar.io](https://unavatar.io); se não carregarem, o piloto recebe um avatar gerado.

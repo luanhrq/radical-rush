@@ -43,13 +43,15 @@ function buildWorld(def,seed){
   const curve=new THREE.CatmullRomCurve3(ctrl,false,'centripetal');
   const Lc=curve.getLength(),n=Math.floor(Lc/DS),pts=curve.getSpacedPoints(n);
   let acc=0;const bounds=def.segs.map(([m,f])=>{const a=acc;acc+=f;return{mod:m,a,b:acc}});bounds[bounds.length-1].b=1;
+  // paraquedas: toca o solo em td e termina o trecho correndo (mais longo quando é a chegada)
+  bounds.forEach((B,k)=>{if(B.mod==='paraquedas'){const len=(B.b-B.a)*n*DS;B.td=clamp(1-(k===bounds.length-1?95:38)/len,.7,.95)}});
   const S=[];let y=440,shx=0,shz=0;
   for(let i=0;i<=n;i++){
     const u=i/n;let si=bounds.findIndex(b=>u<b.b);if(si<0)si=bounds.length-1;
     const B=bounds[si],M=MODS[B.mod],lu=(u-B.a)/(B.b-B.a);
     let px=pts[i].x-shx,pz=pts[i].z-shz;
     if(B.mod==='escalada'&&i>0){const dx=pts[i].x-pts[i-1].x,dz=pts[i].z-pts[i-1].z,dl=Math.hypot(dx,dz)||1,pv=S[i-1].p;px=pv.x+dx/dl*.45;pz=pv.z+dz/dl*.45;shx=pts[i].x-px;shz=pts[i].z-pz}
-    if(i>0){if(B.mod==='escalada')y+=1.95;else if(B.mod==='paraquedas')y-=(lu<.4?1.1:.22)*DS;else{let sl=M.slope;if(M.surface==='snow'||M.surface==='dirt')sl*=1+.65*Math.sin(i*.045+si*2);y-=sl*DS}}
+    if(i>0){if(B.mod==='escalada')y+=1.95;else if(B.mod==='paraquedas')y-=(lu<.4?1.1:lu<B.td?.22:0)*DS;else{let sl=M.slope;if(M.surface==='snow'||M.surface==='dirt')sl*=1+.65*Math.sin(i*.045+si*2);y-=sl*DS}}
     let off=0,yy=y;
     if(B.mod==='paraquedas')off=0;
     else if(M.surface==='air')off=-78*smooth(0,.05,lu)*(1-smooth(.7,1,lu));
@@ -60,7 +62,7 @@ function buildWorld(def,seed){
     else if(B.mod==='windsurf'){const nx=bounds[si+1]&&bounds[si+1].mod==='nado';off=-16*smooth(0,.06,lu)*(nx?1:(1-smooth(.93,1,lu)))}
     S.push({p:new V3(px,yy,pz),s:i*DS,seg:si,mod:B.mod,surface:M.surface,lu,ground:yy+off+(B.mod==='nado'&&si===bounds.length-1?smooth(.9,1,lu)*1.8:0),last:si===bounds.length-1,t:new V3(),sd:new V3()});
   }
-  bounds.forEach(B=>{if(B.mod!=='paraquedas')return;const i0=Math.max(0,Math.round(B.a*n)),i1=Math.min(n,Math.round(B.b*n));const yEnd=S[i1].p.y;for(let i=i0;i<=i1;i++){const q=S[i];q.ground=lerp(lerp(q.p.y,yEnd,smooth(0,.035,q.lu)),q.p.y,smooth(.9,.995,q.lu))}});
+  bounds.forEach(B=>{if(B.mod!=='paraquedas')return;const i0=Math.max(0,Math.round(B.a*n)),i1=Math.min(n,Math.round(B.b*n));const yEnd=S[i1].p.y;for(let i=i0;i<=i1;i++){const q=S[i];q.ground=lerp(q.p.y,yEnd,smooth(0,.035,q.lu))}});
   for(let i=0;i<S.length;i++){const a=S[Math.max(0,i-1)].p,b=S[Math.min(S.length-1,i+1)].p;S[i].t.subVectors(b,a).normalize();S[i].sd.set(-S[i].t.z,0,S[i].t.x).normalize()}
   W.S=S;W.L=(S.length-1)*DS;W.bounds=bounds;
   const wIdx=bounds.map((b,k)=>(b.mod==='nado'||b.mod==='windsurf')?k:-1).filter(k=>k>=0);W.water=null;
@@ -253,7 +255,7 @@ function trackMaterial(kind){
     if(kind==='snow')body=`
 float ex=vR.x;float edge=smoothstep(0.,.13,ex)*smoothstep(1.,.87,ex);
 vec4 snT=texture2D(tSnow,vWP.xz*.055);
-float cord=sin(ex*230.);float trk=smoothstep(.72,.95,rr_vnoise(vec2(ex*36.,vR.y*.08)))*.6;
+float cord=sin(ex*230.)*(1.-smoothstep(18.,60.,length(cameraPosition-vWP)));float trk=smoothstep(.72,.95,rr_vnoise(vec2(ex*36.,vR.y*.08)))*.6;
 vec3 alb=texture2D(tSnowA,vWP.xz*.055).rgb*vec3(.97,.98,1.)*(1.-trk*.12);
 diffuseColor.rgb*=alb;diffuseColor.a*=edge;
 vec3 tN=normalize(vec3(0.,1.,0.)+vSide*cord*.11+(snT.xyz*2.-1.).xzy*vec3(.25,0.,.25));

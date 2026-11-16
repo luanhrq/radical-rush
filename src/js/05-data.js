@@ -29,6 +29,9 @@ const RULES={
   gravidade:{label:'GRAVIDADE BAIXA',icon:'🌙',desc:'saltos bem mais altos'},
 };
 function genRound(n){
+  // ?segs=bike,paraquedas&sky=sunset monta uma rodada fixa (para testar um trecho específico)
+  const qs=(Q.get('segs')||'').split(',').filter(m=>MODS[m]&&m!=='vara');
+  if(qs.length){const tot=qs.reduce((a,m)=>a+(m==='escalada'?0:WEIGHT[m]),0)||1,esc=qs.includes('escalada')?.045:0;return{name:'Rodada de teste',sky:SKIES[Q.get('sky')]?Q.get('sky'):'day',segs:qs.map(m=>[m,m==='escalada'?.045:WEIGHT[m]/tot*(1-esc)]),rules:(Q.get('regras')||'').split(',').filter(r=>RULES[r])}}
   if(n===0)return FIRST_ROUND;
   const R=mulberry(n*7919+(G.seed||1)),pk=a=>a[Math.floor(R()*a.length)];
   const cnt=R()<.2?2:R()<.75?3:4;const featured=[null,'skate','paraquedas','remo','windsurf'][n]||null;

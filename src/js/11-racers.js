@@ -73,12 +73,12 @@ function createRacer(login,name,color,isBot){
   return r;
 }
 function removeRacer(r){disposeRider(r.m);racers.delete(r.login)}
-function resetRacers(){let k=0;for(const r of racers.values()){r.s=START_S-5-Math.floor(k/5)*3.6;r.lat=((k%5)-2)*2.4;r.latT=r.lat;r.v=0;r.finished=false;r.place=0;r.time=0;for(const f in r.fx)r.fx[f]=0;r.lane=k;r.cd={};r.air=null;r.vb=null;r.vaultU=null;r.coins=0;r.out=false;r.landed=false;r.steered=false;r.chuteT=0;r.hop=0;r.skill=rand(.95,1.05);r.mod='';r.botT=rand(3,7);k++}}
+function resetRacers(){let k=0;for(const r of racers.values()){r.s=START_S-5-Math.floor(k/5)*3.6;r.lat=((k%5)-2)*2.4;r.latT=r.lat;r.v=0;r.finished=false;r.place=0;r.time=0;for(const f in r.fx)r.fx[f]=0;r.lane=k;r.cd={};r.air=null;r.vb=null;r.vaultU=null;r.coins=0;r.out=false;r.landed=false;r.steered=false;r.chuteT=null;r.tdS=null;r.grounded=false;r.hop=0;r.skill=rand(.95,1.05);r.mod='';r.botT=rand(3,7);k++}}
 const TA={pos:new V3(),tan:new V3(),side:new V3(),mod:'',surface:'',seg:0,lu:0,ground:0,i:0};
 const CTA={pos:new V3(),tan:new V3(),side:new V3(),mod:'',surface:'',seg:0,lu:0,ground:0,i:0};
 function trackAt(s,o){const S=W.S,f=clamp(s/DS,0,S.length-1.0001),i=f|0,t=f-i,a=S[i],b=S[i+1];
   o.pos.lerpVectors(a.p,b.p,t);o.tan.lerpVectors(a.t,b.t,t).normalize();o.side.lerpVectors(a.sd,b.sd,t).normalize();
-  o.mod=a.mod;o.surface=a.surface;o.seg=a.seg;o.lu=a.lu;o.ground=lerp(a.ground,b.ground,t);o.i=i;return o}
+  o.mod=a.mod;o.surface=a.surface;o.seg=a.seg;o.lu=a.lu;o.last=a.last;o.ground=lerp(a.ground,b.ground,t);o.i=i;return o}
 const _look=new V3(),_v=new V3();
 function updateRacer(r,dt,t){
   const e=r.fx;for(const k in e)if(e[k]>0)e[k]=Math.max(0,e[k]-dt);
@@ -87,7 +87,7 @@ function updateRacer(r,dt,t){
   const standing=air&&(TA.lu<.025)&&r.v<8;
   if(TA.mod!==r.mod){const was=r.mod;r.mod=TA.mod;setVehicle(r,r.mod);if(was&&G.state==='race'){burst(r.root.position.clone().setY(r.root.position.y+1.5),30,[1,1,1],9,2,1,0,3);burst(r.root.position.clone().setY(r.root.position.y+1.5),20,[1,.8,.4],8,1,.6,0,0,GLOW);if(!W.segFirst[TA.seg]){W.segFirst[TA.seg]=true;sfx(TA.mod==='nado'?'splash':'whoosh');banner('TROCA!',`${M.icon} ${M.label}`,1.8)}}}
   let target=0;
-  if(G.state==='race'&&!r.finished){target=M.speed*r.skill;if(TA.mod==='paraquedas'&&TA.lu>.4)target*=.45;if(e.boost>0)target*=1.65;if(e.slow>0)target*=.45;if(G.windT>0)target*=1.25;if(G.slowT>0)target*=.8;target*=1+clamp((G.leaderS-r.s)/420,0,.18);if(e.stun>0||e.stuck>0)target=0}
+  if(G.state==='race'&&!r.finished){target=M.speed*r.skill;if(TA.mod==='paraquedas'&&TA.lu>.4)target*=TA.lu>=W.bounds[TA.seg].td?.3:.45;if(e.boost>0)target*=1.65;if(e.slow>0)target*=.45;if(G.windT>0)target*=1.25;if(G.slowT>0)target*=.8;target*=1+clamp((G.leaderS-r.s)/420,0,.18);if(e.stun>0||e.stuck>0)target=0}
   else if(r.finished)target=Math.max(0,(W.L-8-r.s))*.8;
   const k=e.stun>0?5:target>r.v?(e.boost>0?3:1.3):2.2;
   r.v+=(target-r.v)*(1-Math.exp(-k*dt));
@@ -108,16 +108,23 @@ function updateRacer(r,dt,t){
       if(r.vok){r.vaultU=u;jump+=Math.sin(Math.PI*u)*7.4*gm;r.m.spin.rotation.x=-2.5*Math.sin(Math.PI*Math.min(u/.9,1))*(u<.9?1:0)}
       else{jump+=Math.sin(Math.PI*Math.min(u,.5))*4.4;if(u>.45&&!r.vfail&&G.state==='race'){r.vfail=true;stun(r,1.5);b.fall=1;sfx('crash',r.isBot?.5:1);if(!r.isBot||Math.random()<.4)feed(`🏃 <b>${esc(r.name)}</b> derrubou o sarrafo`)}}}}
   if(TA.mod==='windsurf'&&!r.air&&G.state==='race'&&!r.finished&&Math.random()<dt*.22)r.air={t:0,dur:.85,h:2.6*gm};
-  r.chuteOpen=TA.mod==='paraquedas'&&TA.lu>.4;r.flare=TA.mod==='paraquedas'?smooth(.95,.98,TA.lu)*(1-smooth(.985,.99,TA.lu)):0;
-  if(TA.mod==='paraquedas'){const ch=r.m.chute,cn=ch.getObjectByName('canopy'),sl=ch.getObjectByName('slider');if(r.chuteOpen){if(!ch.visible){ch.visible=true;r.chuteT=0;r.collapse=0;ch.position.set(0,5.6,0);ch.rotation.set(0,0,0);if(!r.isBot)sfx('whoosh',.7)}r.chuteT=Math.min(1,(r.chuteT||0)+dt*.9);const k=r.chuteT;
-      cn.scale.set(.12+.88*smooth(.25,.85,k),.6+.4*smooth(.2,.7,k),.35+.65*smooth(.15,.6,k));if(sl)sl.position.y=lerp(-.9,-3.55,smooth(.3,1,k));
-      const fl=smooth(.95,.98,TA.lu);ch.rotation.z=lerp(ch.rotation.z,clamp(-r.latV*.16,-.5,.5),1-Math.exp(-dt*3));ch.rotation.x=Math.sin(t*1.2+r.phase)*.04-fl*.3;
-      if(TA.lu>.985||r.finished){r.collapse=Math.min(1,(r.collapse||0)+dt*.8);const c=smooth(0,1,r.collapse);ch.position.set(0,lerp(5.6,.9,c),lerp(0,-4.2,c));ch.rotation.x=-1.25*c;cn.scale.y*=1-.65*c}}else ch.visible=false;
-    if(TA.lu>.82&&!r.steered){r.steered=true;r.latT=rand(-1,1)*(Math.random()<.5?1.3:5)}
-    if(TA.lu>.965&&!r.landed&&G.state==='race'){r.landed=true;if(Math.abs(r.lat)<2.2){r.fx.boost=Math.max(r.fx.boost,2.5);if(!r.isBot||Math.random()<.5)feed(`🎯 <b>${esc(r.name)}</b> pousou no centro do alvo! +turbo`)}}}
-  else{r.steered=false;if(r.m.chute.visible)r.m.chute.visible=false}
+  const pq=TA.mod==='paraquedas',pqTd=pq?W.bounds[TA.seg].td:1;
+  r.grounded=pq&&TA.lu>=pqTd;r.chuteOpen=pq&&TA.lu>.4;r.flare=pq&&!r.grounded?smooth(pqTd-.05,pqTd-.008,TA.lu):0;
+  if(pq){const ch=r.m.chute,cn=r.m.canopy;
+    if(r.chuteOpen){if(r.chuteT==null){r.chuteT=0;r.tdS=null;ch.rotation.set(0,0,0);if(!r.isBot&&G.state==='race')sfx('whoosh',.7)}
+      r.chuteT=Math.min(1,r.chuteT+dt*.9);const k=r.chuteT;
+      if(!r.grounded){r.tdS=null;ch.visible=r.m.rig.visible=r.m.clines.visible=true;cn.scale.set(.1+.9*smooth(.25,.85,k),.55+.45*smooth(.2,.7,k),.4+.6*smooth(.15,.6,k));r.m.slider.position.y=lerp(-.8,-2.75,smooth(.3,1,k));ch.rotation.y=0;
+        ch.position.set(0,4.75,0);ch.rotation.z=lerp(ch.rotation.z,clamp(-r.latV*.14,-.45,.45),1-Math.exp(-dt*3));ch.rotation.x=.1+Math.sin(t*1.2+r.phase)*.03-r.flare*.42}
+      else{if(r.tdS==null)r.tdS=r.s;const d=(r.s-r.tdS)/1.5,c=smooth(0,8,d);r.m.rig.visible=false;r.m.clines.visible=c<.2;
+        ch.rotation.z=lerp(ch.rotation.z,0,1-Math.exp(-dt*4));ch.rotation.x=-.32-Math.sin(Math.PI*c)*.7+c*.28;ch.rotation.y=c*.4*(r.phase>5?1:-1);ch.position.set(0,lerp(4.75,.16,c),-d-c*1.6);cn.scale.set(lerp(1,.86,c),lerp(1,.13,c),lerp(1,.92,c));ch.visible=d<50}}
+    else{ch.visible=false;r.chuteT=null}
+    if(TA.lu>pqTd-.14&&!r.steered){r.steered=true;r.latT=rand(-1,1)*(Math.random()<.5?1.3:5)}
+    if(r.grounded&&!r.landed&&G.state==='race'){r.landed=true;for(let q=0;q<10;q++)PUFF.emit(TA.pos.x+rand(-.8,.8),TA.ground+.2,TA.pos.z+rand(-.8,.8),rand(-2,2),rand(.5,2),rand(-2,2),.72,.66,.56,rand(.6,1.2),.8,.5,.5,2);
+      if(Math.abs(r.lat)<2.2){r.fx.boost=Math.max(r.fx.boost,2.5);if(!r.isBot||Math.random()<.5)feed(`🎯 <b>${esc(r.name)}</b> pousou no centro do alvo! +turbo`)}}}
+  else{r.steered=false;if(r.m.chute.visible)r.m.chute.visible=false;r.chuteT=null}
   const P=r.root.position;P.copy(TA.pos).addScaledVector(TA.side,r.lat);P.y=TA.pos.y+.22+jump;
-  if(air&&!standing){const env=smooth(.03,.15,TA.lu)*(1-smooth(.8,1,TA.lu));P.y+=Math.sin(t*1.1+r.phase)*1.6*env-.22+env*.6}
+  if(r.grounded)P.y=TA.ground+.02+jump;
+  else if(air&&!standing){const env=smooth(.03,.15,TA.lu)*(pq?(1-smooth(pqTd-.16,pqTd-.03,TA.lu))*.4:(1-smooth(.8,1,TA.lu)));P.y+=Math.sin(t*1.1+r.phase)*1.6*env-.22+env*.6}
   const climb=TA.mod==='escalada',swim=TA.mod==='nado';
   if(climb){_v.set(TA.tan.x,0,TA.tan.z).normalize();P.addScaledVector(_v,-.62);P.y=TA.pos.y-.3+jump;_look.copy(P).add(_v);if(e.stun>0)r.s=Math.max(r.s-dt*5,W.bounds[TA.seg].a*W.L+2)}
   else if(swim){const under=W.water&&TA.pos.y<W.water.level-1;const lv=W.water?W.water.level:TA.pos.y;r.wade=W.water&&W.water.last&&TA.last?smooth(lv-1.2,lv-.25,TA.ground):0;
@@ -154,7 +161,7 @@ function updateRacer(r,dt,t){
       else if(M.surface==='rio'||M.surface==='mar'){const ph=((r.stroke||0)/(2*Math.PI))%1;if(M.surface==='mar'||ph<.08){for(let q=0;q<(M.surface==='mar'?2:3);q++)PUFF.emit(P.x-TA.tan.x*1.2+rand(-.5,.5)+(M.surface==='rio'?TA.side.x*rand(-3.3,3.3):0),P.y+.12,P.z-TA.tan.z*1.2+rand(-.5,.5)+(M.surface==='rio'?TA.side.z*rand(-3.3,3.3):0),-TA.tan.x*r.v*.08+TA.side.x*rand(-2,2),rand(.6,2.4),-TA.tan.z*r.v*.08+TA.side.z*rand(-2,2),1.05,1.1,1.15,rand(.25,.55),.55,6,.6,1)}}
       else if(M.surface==='pista'){if(Math.random()<.4)PUFF.emit(P.x+rand(-.3,.3),P.y+.15,P.z+rand(-.3,.3),rand(-.6,.6),rand(.3,1),rand(-.6,.6),.55,.5,.4,rand(.4,.8),.5,.5,.35,1.5)}
       else if(M.surface==='rock'){if(Math.random()<.25)PUFF.emit(P.x+rand(-.5,.5),P.y+rand(2.2,3.4),P.z+rand(-.5,.5),rand(-.4,.4),rand(-.6,.2),rand(-.4,.4),1.1,1.1,1.1,rand(.25,.55),.9,-.1,.55,.8)}
-      else if(!standing){if(r.mod==='rocket'){GLOW.emit(P.x-TA.tan.x*1.5,P.y+1.15,P.z-TA.tan.z*1.5,-TA.tan.x*9,rand(-1,1),-TA.tan.z*9,2.5,1.1,.35,rand(.6,1),.35,0,1);PUFF.emit(P.x-TA.tan.x*2,P.y+1.15,P.z-TA.tan.z*2,0,.4,0,.75,.75,.8,1.3,1.4,0,.3,2.2)}
+      else if(air&&!standing&&!pq){if(r.mod==='rocket'){GLOW.emit(P.x-TA.tan.x*1.5,P.y+1.15,P.z-TA.tan.z*1.5,-TA.tan.x*9,rand(-1,1),-TA.tan.z*9,2.5,1.1,.35,rand(.6,1),.35,0,1);PUFF.emit(P.x-TA.tan.x*2,P.y+1.15,P.z-TA.tan.z*2,0,.4,0,.75,.75,.8,1.3,1.4,0,.3,2.2)}
         else for(const sd of[-1.45,1.45])GLOW.emit(P.x+TA.side.x*sd,P.y+1,P.z+TA.side.z*sd,0,0,0,.6,.65,.75,.35,.8,0,.6,-.1)}
       if(TA.mod==='paraquedas'&&!r.chuteOpen&&Math.random()<.5)GLOW.emit(P.x+rand(-2,2),P.y+rand(0,3),P.z+rand(-2,2),-TA.tan.x*20,-TA.tan.y*20+8,-TA.tan.z*20,.5,.55,.6,.18,.35,0,.5);
       if(e.boost>0)GLOW.emit(P.x-TA.tan.x*1.2,P.y+1.5,P.z-TA.tan.z*1.2,-TA.tan.x*6+rand(-1,1),rand(0,2),-TA.tan.z*6+rand(-1,1),3,rand(1,1.8),.3,rand(.5,1),.4,0,1);

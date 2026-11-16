@@ -250,11 +250,12 @@ import {UnrealBloomPass} from 'three/addons/postprocessing/UnrealBloomPass.js';
 import {ShaderPass} from 'three/addons/postprocessing/ShaderPass.js';
 import {RoundedBoxGeometry} from 'three/addons/geometries/RoundedBoxGeometry.js';
 import {GTAOPass} from 'three/addons/postprocessing/GTAOPass.js';
+import {FXAAShader} from 'three/addons/shaders/FXAAShader.js';
 
 // ======================================================================
 // CONFIG
 // ======================================================================
-const VERSION='1.9.1';
+const VERSION='2.0';
 const LS={get(k,d){try{const v=localStorage.getItem('rr.'+k);return v==null?d:v}catch(e){return d}},set(k,v){try{localStorage.setItem('rr.'+k,v)}catch(e){}}};
 const Q=new URLSearchParams(location.search);
 const CFG={
@@ -264,10 +265,10 @@ const CFG={
   rounds:+(Q.get('rodadas')||LS.get('rounds','5')),
 };
 const QP={
-  ultra:{pr:2,shadow:4096,grass:110000,trees:1,seg:440,bloom:1,rays:1,msaa:4,post:1,ao:16,aoHalf:0},
-  high:{pr:1.5,shadow:2048,grass:60000,trees:.85,seg:380,bloom:1,rays:1,msaa:4,post:1,ao:0,aoHalf:0},
-  medium:{pr:1.15,shadow:2048,grass:26000,trees:.6,seg:300,bloom:1,rays:0,msaa:2,post:1},
-  low:{pr:.85,shadow:1024,grass:0,trees:.4,seg:220,bloom:0,rays:0,msaa:0,post:0},
+  ultra:{pr:2,shadow:4096,grass:110000,trees:1,seg:440,bloom:1,rays:1,msaa:4,post:1,ao:16,aoHalf:0,fxaa:1,drMin:.75},
+  high:{pr:1.5,shadow:2048,grass:60000,trees:.85,seg:380,bloom:1,rays:1,msaa:4,post:1,ao:0,aoHalf:0,fxaa:1,drMin:.72},
+  medium:{pr:1.15,shadow:2048,grass:26000,trees:.6,seg:300,bloom:1,rays:0,msaa:2,post:1,fxaa:1,drMin:.66},
+  low:{pr:.85,shadow:1024,grass:0,trees:.4,seg:220,bloom:0,rays:0,msaa:0,post:0,drMin:.55},
 };
 if(!QP[CFG.quality])CFG.quality='high';
 let QL=QP[CFG.quality];
@@ -311,7 +312,7 @@ function ridged(n,x,y,o=5){let a=1,f=1,s=0,m=0,w=1;for(let i=0;i<o;i++){let v=1-
 // ======================================================================
 const FOGU={
   uSunDir:{value:new V3(0,1,0)},uSunCol:{value:new THREE.Color(1,1,1)},uSkyTop:{value:new THREE.Color()},uSkyHor:{value:new THREE.Color()},
-  uFogP:{value:new THREE.Vector4(.004,.006,0,.0001)},uTime:{value:0},uCloud:{value:new THREE.Vector2(.45,.6)},uGround:{value:new THREE.Color(.2,.2,.2)},uUnder:{value:new THREE.Vector4(0,0,0,0)},uWater:{value:new THREE.Vector2(0,0)},
+  uFogP:{value:new THREE.Vector4(.004,.006,0,.0001)},uTime:{value:0},uCloud:{value:new THREE.Vector2(.45,.6)},uGround:{value:new THREE.Color(.2,.2,.2)},uUnder:{value:new THREE.Vector4(0,0,0,0)},uWater:{value:new THREE.Vector2(0,0)},uFogTint:{value:new THREE.Color(.6,.7,.85)},
 };
 const GLSL_NOISE=`
 float rr_hash(vec2 p){vec3 p3=fract(vec3(p.xyx)*.1031);p3+=dot(p3,p3.yzx+33.33);return fract((p3.x+p3.y)*p3.z);}
@@ -320,11 +321,11 @@ float rr_vnoise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mi
 float rr_fbm(vec2 p){float s=0.,a=.5;for(int i=0;i<5;i++){s+=a*rr_vnoise(p);p=p*2.03+vec2(17.1,9.3);a*=.5;}return s;}
 `;
 const GLSL_SKY=`
-uniform vec3 uSunDir;uniform vec3 uSunCol;uniform vec3 uSkyTop;uniform vec3 uSkyHor;uniform vec4 uFogP;uniform float uTime;uniform vec2 uCloud;uniform vec3 uGround;uniform vec4 uUnder;uniform vec2 uWater;
+uniform vec3 uSunDir;uniform vec3 uSunCol;uniform vec3 uSkyTop;uniform vec3 uSkyHor;uniform vec4 uFogP;uniform float uTime;uniform vec2 uCloud;uniform vec3 uGround;uniform vec4 uUnder;uniform vec2 uWater;uniform vec3 uFogTint;
 ${GLSL_NOISE}
 vec3 rr_sky(vec3 d){float h=max(d.y,0.);vec3 c=mix(uSkyHor,uSkyTop,pow(h,.42));float s=max(dot(d,uSunDir),0.);
  c+=uSunCol*(pow(s,5.)*.22+pow(s,64.)*.55);c+=uSunCol*.2*pow(1.-h,5.)*s*s;return c;}
-vec3 rr_fogCol(vec3 d){return rr_sky(normalize(vec3(d.x,max(d.y,0.)*.3+.015,d.z)));}
+vec3 rr_fogCol(vec3 d){vec3 dd=normalize(vec3(d.x,max(d.y,0.)*.3+.015,d.z));float s=max(dot(dd,uSunDir),0.);return mix(uFogTint,rr_sky(dd),.16+.6*s*s*s)*.92;}
 float rr_aerial(float dist,vec3 rd){float a=uFogP.x,b=uFogP.y;float camH=cameraPosition.y-uFogP.z;
  float c=a*exp(-camH*b);float k=rd.y*b;float t=abs(k)>1e-5?(1.-exp(-dist*k))/k:dist;
  float hf=1.-exp(-c*max(t,0.));float hz=1.-exp(-dist*uFogP.w);return clamp(1.-(1.-hf)*(1.-hz),0.,1.);}
@@ -385,13 +386,13 @@ const GradeShader={
   float hsh(vec2 p){return fract(sin(dot(p,vec2(12.9898,78.233)))*43758.5453);}
   void main(){
     vec2 uv=vUv;if(uUW>0.)uv+=vec2(sin(uv.y*38.+uTime*2.6),cos(uv.x*31.+uTime*2.1))*.0028*uUW;vec2 dc=uv-.5;float asp=uRes.x/uRes.y;
-    float ca=.0012+uBoost*.0035;vec3 col=vec3(0.);
-    if(uBoost>.01){for(int i=0;i<8;i++){float t=float(i)/7.;vec2 o=dc*t*.07*uBoost;col.r+=texture2D(tDiffuse,uv-o-dc*ca).r;col.g+=texture2D(tDiffuse,uv-o).g;col.b+=texture2D(tDiffuse,uv-o+dc*ca).b;}col/=8.;}
+    float ca=.0003+uBoost*.0035;vec3 col=vec3(0.);
+    if(uBoost>.01){for(int i=0;i<8;i++){float t=float(i)/7.;vec2 o=dc*t*.045*uBoost;col.r+=texture2D(tDiffuse,uv-o-dc*ca).r;col.g+=texture2D(tDiffuse,uv-o).g;col.b+=texture2D(tDiffuse,uv-o+dc*ca).b;}col/=8.;}
     else{col.r=texture2D(tDiffuse,uv-dc*ca).r;col.g=texture2D(tDiffuse,uv).g;col.b=texture2D(tDiffuse,uv+dc*ca).b;}
     if(uSharp>0.){vec2 px=1./uRes;vec3 nb=texture2D(tDiffuse,uv+vec2(px.x,0.)).rgb+texture2D(tDiffuse,uv-vec2(px.x,0.)).rgb+texture2D(tDiffuse,uv+vec2(0.,px.y)).rgb+texture2D(tDiffuse,uv-vec2(0.,px.y)).rgb;vec3 lap=col-nb*.25;col=max(col+lap*uSharp/(1.+abs(lap)*2.),0.);}
-    if(uRays>.5&&uSunVis>.01){vec2 dir=uSunUV-uv;float acc=0.;float j=hsh(uv*uRes+uTime);
-      for(int i=0;i<14;i++){float t=(float(i)+j)/14.;vec3 s=texture2D(tDiffuse,uv+dir*t*.92).rgb;acc+=smoothstep(1.8,5.,dot(s,vec3(.3,.5,.2)));}
-      acc/=14.;float fall=exp(-length(dir*vec2(asp,1.))*2.4);col+=uSunTint*acc*fall*uSunVis*.75;
+    if(uRays>.5&&uSunVis>.01){vec2 dir=uSunUV-uv;float acc=0.;float j=fract(52.9829189*fract(dot(gl_FragCoord.xy,vec2(.06711056,.00583715))));
+      for(int i=0;i<20;i++){float t=(float(i)+j)/20.;vec3 s=texture2D(tDiffuse,uv+dir*t*.92).rgb;acc+=smoothstep(1.8,5.,dot(s,vec3(.3,.5,.2)));}
+      acc/=20.;float fall=exp(-length(dir*vec2(asp,1.))*2.4);col+=uSunTint*acc*fall*uSunVis*.75;
       vec2 sv=(uv-uSunUV)*vec2(asp,1.);col+=uSunTint*uSunVis*.06*exp(-dot(sv,sv)*30.);
       for(int g=1;g<4;g++){vec2 gp=mix(uSunUV,vec2(.5),float(g)*.55);vec2 gd=(uv-gp)*vec2(asp,1.);float r=.025*float(g);col+=uSunTint*uSunVis*.035*smoothstep(r,r*.6,length(gd));}}
     col=mix(col,col*vec3(.92,1.,1.04),uUW);col*=uExp*1.15*mix(1.,.9,uUW);col=agx(col);col=toSRGB(col);
@@ -399,7 +400,7 @@ const GradeShader={
     col=mix(col,col*col*(3.-2.*col),.2+uUW*.25);
     col+=vec3(-.012,.0,.016)*(1.-l)+vec3(.016,.007,-.012)*l;
     float v=smoothstep(1.05,.3,length(dc*vec2(asp,1.)*.9));col*=mix(.7,1.,v);
-    col+=(hsh(uv*uRes+fract(uTime)*91.)-.5)*.02;
+    col+=(fract(52.9829189*fract(dot(gl_FragCoord.xy,vec2(.06711056,.00583715))))-.5)/255.;
     gl_FragColor=vec4(clamp(col,0.,1.),1.);
   }`
 };
@@ -421,7 +422,8 @@ function setupPost(){
   if(!GTAOPass.prototype._rrFix){const sg=GTAOPass.prototype.setGBuffer;GTAOPass.prototype.setGBuffer=function(d,n){if(d!==undefined&&!this.normalRenderTarget)this.normalRenderTarget={depthTexture:d,setSize(){},dispose(){}};return sg.call(this,d,n)};GTAOPass.prototype._rrFix=1}
   if(QL.ao){try{post.ao=new GTAOPass(scene,camera,innerWidth,innerHeight,{depthTexture:dtex},{radius:2.4,distanceExponent:1.4,thickness:3,scale:1.1,samples:QL.ao,distanceFallOff:1,screenSpaceRadius:false});post.ao.blendIntensity=.9;comp.addPass(post.ao);comp.addPass(new ShaderPass({uniforms:{tDiffuse:{value:null}},vertexShader:`varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,fragmentShader:`uniform sampler2D tDiffuse;varying vec2 vUv;void main(){vec4 c=texture2D(tDiffuse,vUv);if(!(c==c)||!(c.r+c.g+c.b<1e4))c=vec4(0.,0.,0.,1.);gl_FragColor=vec4(clamp(c.rgb,0.,64.),1.);}`}))}catch(e){console.warn('AO',e);post.ao=null}}
   if(QL.bloom){post.bloom=new UnrealBloomPass(new THREE.Vector2(innerWidth/2,innerHeight/2),.42,.6,2.2);comp.addPass(post.bloom)}else post.bloom=null;
-  post.grade=new ShaderPass(GradeShader);comp.addPass(post.grade);post.grade.uniforms.uSharp.value=QL.ao?.24:.16;
+  post.grade=new ShaderPass(GradeShader);comp.addPass(post.grade);post.grade.uniforms.uSharp.value=.14;
+  post.fxaa=null;if(QL.fxaa){post.fxaa=new ShaderPass(FXAAShader);comp.addPass(post.fxaa)}
   post.composer=comp;resize();
   scene.traverse(o=>{if(o.material){(Array.isArray(o.material)?o.material:[o.material]).forEach(m=>m.needsUpdate=true)}});
 }
@@ -429,7 +431,7 @@ function resize(){
   const pr=Math.min(devicePixelRatio||1,QL.pr)*DR;
   renderer.setPixelRatio(pr);renderer.setSize(innerWidth,innerHeight);
   camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();
-  if(post.composer){post.composer.setPixelRatio(pr);post.composer.setSize(innerWidth,innerHeight);post.grade.uniforms.uRes.value.set(innerWidth*pr,innerHeight*pr);if(post.sceneRT)post.sceneRT.setSize(Math.floor(innerWidth*pr),Math.floor(innerHeight*pr));if(post.ao&&QL.aoHalf)post.ao.setSize(Math.floor(innerWidth*pr*.5),Math.floor(innerHeight*pr*.5))}
+  if(post.composer){post.composer.setPixelRatio(pr);post.composer.setSize(innerWidth,innerHeight);post.grade.uniforms.uRes.value.set(innerWidth*pr,innerHeight*pr);if(post.sceneRT)post.sceneRT.setSize(Math.floor(innerWidth*pr),Math.floor(innerHeight*pr));if(post.fxaa)post.fxaa.material.uniforms.resolution.value.set(1/(innerWidth*pr),1/(innerHeight*pr));if(post.ao&&QL.aoHalf)post.ao.setSize(Math.floor(innerWidth*pr*.5),Math.floor(innerHeight*pr*.5))}
   PSYS.forEach(p=>p.mat.uniforms.scale.value=innerHeight*pr*.5);
 }
 addEventListener('resize',resize);
@@ -475,16 +477,16 @@ function setShadowRes(){sun.shadow.mapSize.set(QL.shadow,QL.shadow);if(sun.shado
 setShadowRes();
 
 const SKIES={
-  day:{top:0x2c6fd8,hor:0xbdd8f2,sun:0xfff1dc,sunI:3.7,elev:.78,az:.7,exp:1.0,fog:[.0032,.0055,.00010],cloud:[.42,.6],ground:0x5d6152,mul:1.35},
-  golden:{top:0x3567c2,hor:0xffcf9c,sun:0xffb874,sunI:3.4,elev:.3,az:2.3,exp:1.06,fog:[.0034,.0050,.00011],cloud:[.48,.65],ground:0x6b5a45,mul:1.3},
-  sunset:{top:0x1d2a66,hor:0xff8a5a,sun:0xff8f50,sunI:3.0,elev:.18,az:-2.5,exp:1.15,fog:[.0033,.0050,.00011],cloud:[.52,.55],ground:0x4a3a40,mul:1.25},
-  crisp:{top:0x1648b2,hor:0xd4eaff,sun:0xffffff,sunI:3.9,elev:.55,az:-.9,exp:.95,fog:[.0024,.0060,.00008],cloud:[.3,.5],ground:0x8090a0,mul:1.4},
+  day:{haze:0x9fbfe0,top:0x2c6fd8,hor:0xbdd8f2,sun:0xfff1dc,sunI:3.7,elev:.78,az:.7,exp:1.0,fog:[.0032,.0055,.00010],cloud:[.42,.6],ground:0x5d6152,mul:1.35},
+  golden:{haze:0xb7bcc9,top:0x3567c2,hor:0xffcf9c,sun:0xffb874,sunI:3.4,elev:.3,az:2.3,exp:1.06,fog:[.0029,.0050,.0001],cloud:[.48,.65],ground:0x6b5a45,mul:1.3},
+  sunset:{haze:0x9f9bbb,top:0x24347a,hor:0xf89868,sun:0xffa873,sunI:3.1,elev:.2,az:-2.5,exp:1.15,fog:[.0026,.0050,.00009],cloud:[.52,.55],ground:0x4a3a40,mul:1.25},
+  crisp:{haze:0xa8c6ea,top:0x1648b2,hor:0xd4eaff,sun:0xffffff,sunI:3.9,elev:.55,az:-.9,exp:.95,fog:[.0024,.0060,.00008],cloud:[.3,.5],ground:0x8090a0,mul:1.4},
 };
 const SUN_DIR=new V3();let SKY=SKIES.day;
 function applySky(k,baseH){
   const S=SKY=SKIES[k];
   FOGU.uSkyTop.value.setHex(S.top).multiplyScalar(S.mul);FOGU.uSkyHor.value.setHex(S.hor).multiplyScalar(S.mul);
-  FOGU.uSunCol.value.setHex(S.sun);FOGU.uGround.value.setHex(S.ground).multiplyScalar(.6);
+  FOGU.uFogTint.value.setHex(S.haze).multiplyScalar(S.mul*.9);FOGU.uSunCol.value.setHex(S.sun);FOGU.uGround.value.setHex(S.ground).multiplyScalar(.6);
   SUN_DIR.set(Math.cos(S.elev)*Math.sin(S.az),Math.sin(S.elev),Math.cos(S.elev)*Math.cos(S.az)).normalize();
   FOGU.uSunDir.value.copy(SUN_DIR);
   FOGU.uFogP.value.set(S.fog[0],S.fog[1],baseH,S.fog[2]);FOGU.uCloud.value.set(S.cloud[0],S.cloud[1]);
@@ -514,9 +516,9 @@ function detailTex(h,size,strength){
   for(let y=0;y<size;y++)for(let x=0;x<size;x++){const xl=(x-1+size)%size,xr=(x+1)%size,yu=(y-1+size)%size,yd=(y+1)%size;
     const dx=(h[y*size+xr]-h[y*size+xl])/rg*strength,dy=(h[yd*size+x]-h[yu*size+x])/rg*strength;let nx=-dx,ny=-dy,nz=1;const l=Math.hypot(nx,ny,nz);nx/=l;ny/=l;nz/=l;
     const i=(y*size+x)*4;data[i]=nx*127.5+127.5;data[i+1]=ny*127.5+127.5;data[i+2]=nz*127.5+127.5;data[i+3]=(h[y*size+x]-mn)/rg*255}
-  const t=new THREE.DataTexture(data,size,size,THREE.RGBAFormat);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.magFilter=THREE.LinearFilter;t.minFilter=THREE.LinearMipmapLinearFilter;t.generateMipmaps=true;t.anisotropy=8;t.needsUpdate=true;return t}
+  const t=new THREE.DataTexture(data,size,size,THREE.RGBAFormat);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.magFilter=THREE.LinearFilter;t.minFilter=THREE.LinearMipmapLinearFilter;t.generateMipmaps=true;t.anisotropy=16;t.needsUpdate=true;return t}
 const TEXU={tRock:{value:null},tGrass:{value:null},tSnow:{value:null},tSand:{value:null},tWaves:{value:null},tRockA:{value:null},tGrassA:{value:null},tSnowA:{value:null},tSandA:{value:null}};let CLOTH=null;
-function albTex(rgba,size){const t=new THREE.DataTexture(rgba,size,size,THREE.RGBAFormat);t.colorSpace=THREE.SRGBColorSpace;t.wrapS=t.wrapT=THREE.RepeatWrapping;t.magFilter=THREE.LinearFilter;t.minFilter=THREE.LinearMipmapLinearFilter;t.generateMipmaps=true;t.anisotropy=8;t.needsUpdate=true;return t}
+function albTex(rgba,size){const t=new THREE.DataTexture(rgba,size,size,THREE.RGBAFormat);t.colorSpace=THREE.SRGBColorSpace;t.wrapS=t.wrapT=THREE.RepeatWrapping;t.magFilter=THREE.LinearFilter;t.minFilter=THREE.LinearMipmapLinearFilter;t.generateMipmaps=true;t.anisotropy=16;t.needsUpdate=true;return t}
 function buildTexturesHD(){
   const rnd=mulberry(4242);const c8=v=>Math.max(0,Math.min(255,v*255|0));
   // rocha: relevo em camadas, fissuras, estratos, líquen e grãos minerais
@@ -672,6 +674,9 @@ const RULES={
   gravidade:{label:'GRAVIDADE BAIXA',icon:'🌙',desc:'saltos bem mais altos'},
 };
 function genRound(n){
+  // ?segs=bike,paraquedas&sky=sunset monta uma rodada fixa (para testar um trecho específico)
+  const qs=(Q.get('segs')||'').split(',').filter(m=>MODS[m]&&m!=='vara');
+  if(qs.length){const tot=qs.reduce((a,m)=>a+(m==='escalada'?0:WEIGHT[m]),0)||1,esc=qs.includes('escalada')?.045:0;return{name:'Rodada de teste',sky:SKIES[Q.get('sky')]?Q.get('sky'):'day',segs:qs.map(m=>[m,m==='escalada'?.045:WEIGHT[m]/tot*(1-esc)]),rules:(Q.get('regras')||'').split(',').filter(r=>RULES[r])}}
   if(n===0)return FIRST_ROUND;
   const R=mulberry(n*7919+(G.seed||1)),pk=a=>a[Math.floor(R()*a.length)];
   const cnt=R()<.2?2:R()<.75?3:4;const featured=[null,'skate','paraquedas','remo','windsurf'][n]||null;
@@ -748,13 +753,15 @@ function buildWorld(def,seed){
   const curve=new THREE.CatmullRomCurve3(ctrl,false,'centripetal');
   const Lc=curve.getLength(),n=Math.floor(Lc/DS),pts=curve.getSpacedPoints(n);
   let acc=0;const bounds=def.segs.map(([m,f])=>{const a=acc;acc+=f;return{mod:m,a,b:acc}});bounds[bounds.length-1].b=1;
+  // paraquedas: toca o solo em td e termina o trecho correndo (mais longo quando é a chegada)
+  bounds.forEach((B,k)=>{if(B.mod==='paraquedas'){const len=(B.b-B.a)*n*DS;B.td=clamp(1-(k===bounds.length-1?95:38)/len,.7,.95)}});
   const S=[];let y=440,shx=0,shz=0;
   for(let i=0;i<=n;i++){
     const u=i/n;let si=bounds.findIndex(b=>u<b.b);if(si<0)si=bounds.length-1;
     const B=bounds[si],M=MODS[B.mod],lu=(u-B.a)/(B.b-B.a);
     let px=pts[i].x-shx,pz=pts[i].z-shz;
     if(B.mod==='escalada'&&i>0){const dx=pts[i].x-pts[i-1].x,dz=pts[i].z-pts[i-1].z,dl=Math.hypot(dx,dz)||1,pv=S[i-1].p;px=pv.x+dx/dl*.45;pz=pv.z+dz/dl*.45;shx=pts[i].x-px;shz=pts[i].z-pz}
-    if(i>0){if(B.mod==='escalada')y+=1.95;else if(B.mod==='paraquedas')y-=(lu<.4?1.1:.22)*DS;else{let sl=M.slope;if(M.surface==='snow'||M.surface==='dirt')sl*=1+.65*Math.sin(i*.045+si*2);y-=sl*DS}}
+    if(i>0){if(B.mod==='escalada')y+=1.95;else if(B.mod==='paraquedas')y-=(lu<.4?1.1:lu<B.td?.22:0)*DS;else{let sl=M.slope;if(M.surface==='snow'||M.surface==='dirt')sl*=1+.65*Math.sin(i*.045+si*2);y-=sl*DS}}
     let off=0,yy=y;
     if(B.mod==='paraquedas')off=0;
     else if(M.surface==='air')off=-78*smooth(0,.05,lu)*(1-smooth(.7,1,lu));
@@ -765,7 +772,7 @@ function buildWorld(def,seed){
     else if(B.mod==='windsurf'){const nx=bounds[si+1]&&bounds[si+1].mod==='nado';off=-16*smooth(0,.06,lu)*(nx?1:(1-smooth(.93,1,lu)))}
     S.push({p:new V3(px,yy,pz),s:i*DS,seg:si,mod:B.mod,surface:M.surface,lu,ground:yy+off+(B.mod==='nado'&&si===bounds.length-1?smooth(.9,1,lu)*1.8:0),last:si===bounds.length-1,t:new V3(),sd:new V3()});
   }
-  bounds.forEach(B=>{if(B.mod!=='paraquedas')return;const i0=Math.max(0,Math.round(B.a*n)),i1=Math.min(n,Math.round(B.b*n));const yEnd=S[i1].p.y;for(let i=i0;i<=i1;i++){const q=S[i];q.ground=lerp(lerp(q.p.y,yEnd,smooth(0,.035,q.lu)),q.p.y,smooth(.9,.995,q.lu))}});
+  bounds.forEach(B=>{if(B.mod!=='paraquedas')return;const i0=Math.max(0,Math.round(B.a*n)),i1=Math.min(n,Math.round(B.b*n));const yEnd=S[i1].p.y;for(let i=i0;i<=i1;i++){const q=S[i];q.ground=lerp(q.p.y,yEnd,smooth(0,.035,q.lu))}});
   for(let i=0;i<S.length;i++){const a=S[Math.max(0,i-1)].p,b=S[Math.min(S.length-1,i+1)].p;S[i].t.subVectors(b,a).normalize();S[i].sd.set(-S[i].t.z,0,S[i].t.x).normalize()}
   W.S=S;W.L=(S.length-1)*DS;W.bounds=bounds;
   const wIdx=bounds.map((b,k)=>(b.mod==='nado'||b.mod==='windsurf')?k:-1).filter(k=>k>=0);W.water=null;
@@ -958,7 +965,7 @@ function trackMaterial(kind){
     if(kind==='snow')body=`
 float ex=vR.x;float edge=smoothstep(0.,.13,ex)*smoothstep(1.,.87,ex);
 vec4 snT=texture2D(tSnow,vWP.xz*.055);
-float cord=sin(ex*230.);float trk=smoothstep(.72,.95,rr_vnoise(vec2(ex*36.,vR.y*.08)))*.6;
+float cord=sin(ex*230.)*(1.-smoothstep(18.,60.,length(cameraPosition-vWP)));float trk=smoothstep(.72,.95,rr_vnoise(vec2(ex*36.,vR.y*.08)))*.6;
 vec3 alb=texture2D(tSnowA,vWP.xz*.055).rgb*vec3(.97,.98,1.)*(1.-trk*.12);
 diffuseColor.rgb*=alb;diffuseColor.a*=edge;
 vec3 tN=normalize(vec3(0.,1.,0.)+vSide*cord*.11+(snT.xyz*2.-1.).xzy*vec3(.25,0.,.25));
@@ -1086,7 +1093,7 @@ function planeMesh(c2){const g=new THREE.Group();const wht=new THREE.MeshPhysica
   const prop=new THREE.Group();prop.position.set(0,1.6,4.35);for(const a of[0,Math.PI/2]){const b=new THREE.Mesh(new THREE.BoxGeometry(2.6,.16,.06),dark);b.rotation.z=a;prop.add(b)}g.add(prop);const sp=new THREE.Mesh(new THREE.ConeGeometry(.28,.5,12).rotateX(Math.PI/2),acc2);sp.position.set(0,1.6,4.5);g.add(sp);
   for(const [x,z] of[[-1.3,.9],[1.3,.9],[0,3.4]]){const wh=new THREE.Mesh(new THREE.CylinderGeometry(.32,.32,.2,14).rotateZ(Math.PI/2),dark);wh.position.set(x,.32,z);g.add(wh);const lg=new THREE.Mesh(new THREE.CylinderGeometry(.05,.05,1.1,6),dark);lg.position.set(x,.85,z);g.add(lg)}
   g.traverse(o=>{if(o.isMesh)o.castShadow=true});g.userData.prop=prop;return g}
-function buildLanding(i0,i1){const S=W.S,i=i0+Math.round((i1-i0)*.97),s=S[i];W.landS=s.s;const ang=Math.atan2(s.t.x,s.t.z);
+function buildLanding(i0,i1){const S=W.S,td=W.bounds[S[Math.min(i1,i0+2)].seg].td||.93,i=Math.min(i1,i0+Math.round((i1-i0)*td)+3),s=S[i];W.landS=s.s;const ang=Math.atan2(s.t.x,s.t.z);
   const place=(o,ss,lat,along,y,rot=0)=>{o.position.set(ss.p.x+ss.sd.x*lat+ss.t.x*along,y,ss.p.z+ss.sd.z*lat+ss.t.z*along);o.rotation.y=Math.atan2(ss.t.x,ss.t.z)+rot;W.group.add(o);return o};
   // alvo: cascalho fino com anéis pintados
   const tex=cTex(1024,1024,(x,w,h)=>{x.fillStyle='#b9a98c';x.fillRect(0,0,w,h);const R2=mulberry(5);for(let k=0;k<26000;k++){const v=150+R2()*90|0;x.fillStyle=`rgb(${v},${v-12|0},${v-30|0})`;x.beginPath();x.ellipse(R2()*w,R2()*h,1.5+R2()*3,1.2+R2()*2.4,R2()*3,0,7);x.fill()}
@@ -1108,7 +1115,7 @@ function buildLanding(i0,i1){const S=W.S,i=i0+Math.round((i1-i0)*.97),s=S[i];W.l
   // bandeiras de pena ao redor do campo
   {const fm=new THREE.MeshStandardMaterial({roughness:.6,side:THREE.DoubleSide});fm.onBeforeCompile=sh=>{Object.assign(sh.uniforms,FOGU);sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nuniform float uTime;').replace('#include <begin_vertex>','#include <begin_vertex>\nfloat fw=max(position.x,0.);transformed.z+=sin(uTime*4.+position.y*1.5+modelMatrix[3].x)*.12*fw;')};
     const shape=new THREE.Shape();shape.moveTo(0,0);shape.lineTo(0,4.2);shape.quadraticCurveTo(1.6,4.5,1.2,2.4);shape.lineTo(.9,.4);shape.lineTo(0,0);const fg=new THREE.ShapeGeometry(shape,8);
-    [[-18,8],[-18,-8],[18,8],[18,-8],[-9,16],[9,16]].forEach(([lat,al],k)=>{const g=new THREE.Group();const pl=new THREE.Mesh(new THREE.CylinderGeometry(.04,.05,5,6),new THREE.MeshStandardMaterial({color:0x333a44}));pl.position.y=2.5;g.add(pl);const m2=fm.clone();m2.onBeforeCompile=fm.onBeforeCompile;m2.color.setHSL([.02,.58,.12][k%3],.85,.5);const f=new THREE.Mesh(fg,m2);f.position.y=.6;g.add(f);
+    [[-18,8],[-18,-8],[18,8],[18,-8],[-17,22],[17,22]].forEach(([lat,al],k)=>{const g=new THREE.Group();const pl=new THREE.Mesh(new THREE.CylinderGeometry(.04,.05,5,6),new THREE.MeshStandardMaterial({color:0x333a44}));pl.position.y=2.5;g.add(pl);const m2=fm.clone();m2.onBeforeCompile=fm.onBeforeCompile;m2.color.setHSL([.02,.58,.12][k%3],.85,.5);const f=new THREE.Mesh(fg,m2);f.position.y=.6;g.add(f);
       g.traverse(o=>{if(o.isMesh)o.castShadow=true});const x=s.p.x+s.sd.x*lat+s.t.x*al,z=s.p.z+s.sd.z*lat+s.t.z*al;g.position.set(x,gridH(x,z),z);g.rotation.y=rand(0,6);W.group.add(g)})}
   // plataforma de salto na beira do penhasco + helicóptero
   {const se=S[Math.min(i1,i0+2)];const st=new THREE.MeshStandardMaterial({color:0x3a414c,roughness:.45,metalness:.7}),gr=new THREE.MeshStandardMaterial({color:0x9aa3ad,roughness:.6,metalness:.6});const g=new THREE.Group();
@@ -1572,7 +1579,7 @@ function scatter(rng){
     const lat=(15+Math.pow(rng(),1.7)*440)*side;
     const x=s.p.x+s.sd.x*lat+s.t.x*(rng()-.5)*30,z=s.p.z+s.sd.z*lat+s.t.z*(rng()-.5)*30;
     if(Math.abs(x)>1280||Math.abs(z)>1280)continue;
-    const h=gridH(x,z);nearest(x,z);const ss=W.S[_ni],d=_nd;if(d<(ss.surface==='air'?30:ss.surface==='pista'?30:ss.surface==='asfalto'?13:ss.surface==='rio'?32:14))continue;if(d<48&&(ss.s<START_S+70||ss.s>W.FIN-70))continue;if((ss.surface==='water'||ss.surface==='rock'||ss.surface==='mar')&&d<75)continue;if(W.water&&h<W.water.level+1.2)continue;
+    const h=gridH(x,z);nearest(x,z);const ss=W.S[_ni],d=_nd;if(d<(ss.surface==='air'?30:ss.surface==='pista'?30:ss.surface==='asfalto'?13:ss.surface==='rio'?32:14))continue;if(W.landS!=null&&ss.mod==='paraquedas'&&Math.abs(ss.s-W.landS)<80&&d<64)continue;if(d<48&&(ss.s<START_S+70||ss.s>W.FIN-70))continue;if((ss.surface==='water'||ss.surface==='rock'||ss.surface==='mar')&&d<75)continue;if(W.water&&h<W.water.level+1.2)continue;
     const h2=gridH(x+2,z),h3=gridH(x,z+2),slope=Math.hypot(h2-h,h3-h)/2;
     const sf=ss.surface,r=rng(),hw=h-ss.ground;
     if(sf==='air'){if(r<.35&&slope<.9)R.push([x,h,z,'canyon']);else if(r<.75&&slope<.55)SH.push([x,h,z]);continue}
@@ -1695,7 +1702,7 @@ vCC=aPart<.5?mix(vec3(.03,.04,.07),aShirt*.3,.4):(aPart<1.5||(aPart>3.5&&aPart<5
 function makeCrowd(rng){
   const S=W.S,spots=[W.FIN-30,W.FIN+6,START_S+15,...W.bounds.slice(1).map(b=>b.a*W.L-25),...W.bounds.filter(b=>b.mod==='vara'||b.mod==='skate'||b.mod==='remo').map(b=>(b.a+b.b)/2*W.L),...(W.landS?[W.landS]:[])];
   const list=[],fences=[],flagsL=[];
-  spots.forEach(s0=>{for(let k=0;k<70;k++){const s=s0+rand(-26,26),i=clamp(Math.round(s/DS),0,S.length-1),p=S[i];if(!isG(p.surface)&&!(p.surface==='water'&&p.lu>.96)&&p.surface!=='rio'&&!(p.mod==='paraquedas'&&p.lu>.9))continue;const side=rng()<.5?-1:1,lat=side*(p.surface==='rio'?rand(21,29):p.mod==='paraquedas'?rand(18,26):p.surface==='asfalto'?rand(9,12):rand(12.6,19.5));
+  spots.forEach(s0=>{for(let k=0;k<70;k++){const s=s0+rand(-26,26),i=clamp(Math.round(s/DS),0,S.length-1),p=S[i];if(!isG(p.surface)&&!(p.surface==='water'&&p.lu>.96)&&p.surface!=='rio'&&!(p.mod==='paraquedas'&&p.lu>(W.bounds[p.seg].td||.9)-.07))continue;const side=rng()<.5?-1:1,lat=side*(p.surface==='rio'?rand(21,29):p.mod==='paraquedas'?rand(18,26):p.surface==='asfalto'?rand(9,12):rand(12.6,19.5));
       const x=p.p.x+p.sd.x*lat,z=p.p.z+p.sd.z*lat,y=gridH(x,z);if(W.water&&y<W.water.level+.3)continue;if(Math.abs(y-p.ground)>4)continue;list.push({x,z,y,ang:Math.atan2(-p.sd.x*side,-p.sd.z*side)})}
     for(let f=-24;f<=24;f+=3.3){const i=clamp(Math.round((s0+f)/DS),0,S.length-1),p=S[i];if(!isG(p.surface)||p.surface==='asfalto')continue;const fw=p.surface==='pista'?14.5:11.6;for(const side of[-1,1]){const x=p.p.x+p.sd.x*fw*side,z=p.p.z+p.sd.z*fw*side,y=gridH(x,z);if(Math.abs(y-p.ground)>3)continue;fences.push({x,y,z,ang:Math.atan2(p.t.x,p.t.z)});if(rng()<.18)flagsL.push({x:p.p.x+p.sd.x*20*side,y:gridH(p.p.x+p.sd.x*20*side,p.p.z+p.sd.z*20*side),z:p.p.z+p.sd.z*20*side,ang:Math.atan2(p.t.x,p.t.z)})}}});
   const mt=new THREE.Matrix4(),q=new THREE.Quaternion(),sc=new V3(1.5,1.5,1.5),pp=new V3();
@@ -1871,22 +1878,35 @@ function makeRider(color,name,pal){
     for(const z of[.34,-.34]){mk(T(new RoundedBoxGeometry(.07,.025,.1,2,.008),0,.09,z),M_METAL,skate);mk(T(new THREE.CylinderGeometry(.018,.022,.04,8),0,.068,z),M_METAL,skate);mk(T(new THREE.CylinderGeometry(.009,.009,.27,6),0,.046,z,0,0,Math.PI/2),M_METAL,skate);
       for(const x of[-.12,.12])mk(T(new THREE.CylinderGeometry(.036,.036,.05,16),x,.036,z,0,0,Math.PI/2),wm,skate)}}
   skate.visible=false;
-  const chute=new THREE.Group();chute.position.y=5.6;root.add(chute);
-  {const NC=9,SP=5.8,CH=2.3,R=3.6,NX=NC*6,NZ=12,P2=[],C2=[],I2=[];const pal=[prim,prim,acc,0xf4f4f4,prim,0xf4f4f4,acc,prim,prim].map(c=>new THREE.Color(c));
-    const thick=u=>.34*Math.sqrt(.05+u*.95)*Math.pow(1-u,1.1)+.012;
-    const pt=(xu,u,top)=>{const x=(xu-.5)*SP,cf=(xu*NC)%1,bul=Math.sin(cf*Math.PI)*.075*(1-u*.4);const y=top?thick(u)*.62+bul:-thick(u)*.38-bul*.22;const a=x/SP*1.75,rr=R+y;return[Math.sin(a)*rr,Math.cos(a)*rr-R,CH*(.45-u)]};
-    for(const top of[1,0]){const o=P2.length/3;for(let i=0;i<=NX;i++)for(let j=0;j<=NZ;j++){const xu=i/NX,u=j/NZ;P2.push(...pt(xu,u,top));const cell=Math.min(NC-1,Math.floor(xu*NC));const c=pal[cell];const k=top?1:.62;C2.push(c.r*k,c.g*k,c.b*k)}
+  const chute=new THREE.Group();chute.position.y=4.75;root.add(chute);
+  const canopy=new THREE.Group(),rig=new THREE.Group();chute.add(canopy,rig);let clines,slider;
+  {const NC=9,SP=6.7,CH=2.75,ARC=1.02,R=SP/ARC,NX=NC*6,NZ=14,P2=[],C2=[],I2=[];const pal=[acc,prim,prim,prim,0xf4f4f4,prim,prim,prim,acc].map(c=>new THREE.Color(c));
+    const thick=u=>lerp(.17,.34,ssj(0,.2,u))*Math.pow(1-ssj(.2,1,u),.85)+.012;
+    const pt=(xu,u,top)=>{const x=(xu-.5)*SP,cf=(xu*NC)%1,bul=Math.sin(cf*Math.PI)*.07*(1-u*.5);const y=top?thick(u)*.68+bul:-thick(u)*.32-bul*.2;const a=x/R,rr=R+y;return[Math.sin(a)*rr,Math.cos(a)*rr-R,CH*(.42-u)-Math.abs(xu-.5)*.25]};
+    // extradorso e intradorso
+    for(const top of[1,0]){const o=P2.length/3;for(let i=0;i<=NX;i++)for(let j=0;j<=NZ;j++){const xu=i/NX,u=j/NZ;P2.push(...pt(xu,u,top));const c=pal[Math.min(NC-1,Math.floor(xu*NC))];const seam=Math.abs(((xu*NC)%1)-.5)>.46?.82:1,k=(top?1:.8)*seam;C2.push(c.r*k,c.g*k,c.b*k)}
       for(let i=0;i<NX;i++)for(let j=0;j<NZ;j++){const a=o+i*(NZ+1)+j,b=a+1,c=a+NZ+1,d=c+1;if(top)I2.push(a,c,b,b,c,d);else I2.push(a,b,c,b,d,c)}}
-    for(let ci=0;ci<=NC;ci++){const xu=ci/NC,o=P2.length/3;for(let j=0;j<=NZ;j++){P2.push(...pt(xu,j/NZ,1),...pt(xu,j/NZ,0));C2.push(.82,.82,.84,.82,.82,.84)}for(let j=0;j<NZ;j++){const a=o+j*2;I2.push(a,a+1,a+2,a+1,a+3,a+2)}}
+    // nervuras entre as células
+    for(let ci=0;ci<=NC;ci++){const xu=ci/NC,o=P2.length/3;for(let j=0;j<=NZ;j++){P2.push(...pt(xu,j/NZ,1),...pt(xu,j/NZ,0));C2.push(.86,.86,.88,.86,.86,.88)}for(let j=0;j<NZ;j++){const a=o+j*2;I2.push(a,a+1,a+2,a+1,a+3,a+2)}}
+    // bocas das células (bordo de ataque aberto, interior escuro)
+    for(let ci=0;ci<NC;ci++){const o=P2.length/3;for(let k=0;k<=6;k++){const xu=(ci+.04+k/6*.92)/NC;const a=pt(xu,0,1),b=pt(xu,0,0),a2=pt(xu,.07,1),b2=pt(xu,.07,0);const cc=pal[ci];P2.push(a[0],lerp(a[1],b[1],.5),a[2]-.015,b[0],lerp(b[1],a[1],.1),b[2]-.015);C2.push(cc.r*.2,cc.g*.2,cc.b*.22,cc.r*.2,cc.g*.2,cc.b*.22)}
+      for(let k=0;k<6;k++){const a=o+k*2;I2.push(a,a+2,a+1,a+1,a+2,a+3)}}
+    // estabilizadores nas pontas
+    for(const xu of[0,1]){const o=P2.length/3;const a=pt(xu,.14,0),b=pt(xu,.8,0),m=pt(xu,.45,0),c=pal[xu?NC-1:0];P2.push(...a,...b,m[0]*1.02,m[1]-.58,m[2]);for(let k=0;k<3;k++)C2.push(c.r*.9,c.g*.9,c.b*.9);I2.push(o,o+1,o+2)}
     const cgeo=new THREE.BufferGeometry();cgeo.setAttribute('position',new THREE.Float32BufferAttribute(P2,3));cgeo.setAttribute('color',new THREE.Float32BufferAttribute(C2,3));cgeo.setIndex(I2);cgeo.computeVertexNormals();
-    const canopy=mk(cgeo,new THREE.MeshPhysicalMaterial({vertexColors:true,roughness:.5,sheen:1,sheenColor:new THREE.Color(.7,.7,.7),side:THREE.DoubleSide}),chute);canopy.name='canopy';
-    const lp=[];const riser=(x,z)=>[x<0?-.24:.24,-3.95,z];
-    for(let ci=0;ci<=NC;ci++)for(const u of[.14,.62]){const a=pt(ci/NC,u,0);const r2=riser(a[0],u<.5?.08:-.08);lp.push(...a,...r2)}
-    for(const ci of[0,9]){const a=pt(ci/NC,1,0);lp.push(...a,ci<5?-.42:.42,-3.25,-.05)}
-    const lg=new THREE.BufferGeometry();lg.setAttribute('position',new THREE.Float32BufferAttribute(lp,3));chute.add(new THREE.LineSegments(lg,new THREE.LineBasicMaterial({color:0x3a404a,transparent:true,opacity:.3})));
-    const slider=mk(new THREE.PlaneGeometry(.8,.55).rotateX(-Math.PI/2),new THREE.MeshStandardMaterial({color:0x22262e,roughness:.7,side:THREE.DoubleSide}),chute,false);slider.position.y=-1.2;slider.name='slider';
-    const pc=mk(new THREE.SphereGeometry(.34,16,8,0,Math.PI*2,0,Math.PI/2),new THREE.MeshStandardMaterial({color:acc,roughness:.6,side:THREE.DoubleSide}),chute,false);pc.position.set(0,1.05,-1.9);pc.rotation.x=-.9;
-    const bg=new THREE.BufferGeometry();bg.setAttribute('position',new THREE.Float32BufferAttribute([0,.22,0,0,1.05,-1.9],3));chute.add(new THREE.LineSegments(bg,new THREE.LineBasicMaterial({color:0xe8e8e8})))}
+    const cmat=new THREE.MeshPhysicalMaterial({vertexColors:true,roughness:.62,sheen:.6,sheenRoughness:.5,sheenColor:new THREE.Color(.6,.6,.6),side:THREE.DoubleSide});
+    // o tecido deixa passar luz: o lado de baixo não fica preto
+    cmat.onBeforeCompile=sh=>{Object.assign(sh.uniforms,FOGU);sh.fragmentShader=sh.fragmentShader.replace('#include <emissivemap_fragment>','#include <emissivemap_fragment>\ntotalEmissiveRadiance+=diffuseColor.rgb*uSunCol*(.3+.5*max(uSunDir.y,0.));')};cmat.customProgramCacheKey=()=>'canopy';
+    mk(cgeo,cmat,canopy);
+    // linhas em cascata: 4 fileiras (A,B → tirante dianteiro; C,D → tirante traseiro)
+    const lp=[],RY=-3.2,rz=[.035,.035,-.035,-.035],rows=[.07,.3,.56,.82];
+    rows.forEach((u,ri)=>{for(const sd of[-1,1]){const rs=[sd*.2,RY,rz[ri]];const ribs=sd<0?[0,1,2,3,4]:[9,8,7,6,5];for(const grp of[[ribs[0],ribs[1]],[ribs[2],ribs[3]],[ribs[4]]]){const at=grp.map(ci=>pt(ci/NC,u,0));const mx=at.reduce((s2,a)=>s2+a[0],0)/at.length,my=at.reduce((s2,a)=>s2+a[1],0)/at.length,mz=at.reduce((s2,a)=>s2+a[2],0)/at.length;
+        const cx=lerp(rs[0],mx,.56),cy=lerp(rs[1],my,.56),cz=lerp(rs[2],mz,.56);lp.push(rs[0],rs[1],rs[2],cx,cy,cz);for(const a of at)lp.push(cx,cy,cz,a[0],a[1],a[2])}}});
+    for(const sd of[-1,1]){const ribs=sd<0?[0,1.5,3]:[9,7.5,6];const j=[sd*1.25,-1.15,-CH*.5];lp.push(sd*.22,RY+.2,-.08,...j);for(const ci of ribs){const a=pt(ci/NC,1,0);lp.push(...j,...a)}}
+    const lg=new THREE.BufferGeometry();lg.setAttribute('position',new THREE.Float32BufferAttribute(lp,3));clines=new THREE.LineSegments(lg,new THREE.LineBasicMaterial({color:0x2e333c,transparent:true,opacity:.42}));canopy.add(clines);
+    // tirantes, slider e pilotinho recolhido
+    slider=new THREE.Object3D();rig.add(slider);
+  }
   chute.visible=false;
   const bflame=new THREE.Mesh(RG.bflame,M_FLAME);bflame.position.set(0,1.1,-.5);root.add(bflame);
   const shield=new THREE.Mesh(RG.shield,M_SHIELD);shield.position.y=1;root.add(shield);
@@ -1899,7 +1919,7 @@ function makeRider(color,name,pal){
   const badgeParts=[bk,bkI,hb,cb];badgeParts.forEach(o=>o.visible=false);
   const tag=nameTag(name,color);tag.position.y=2.9;root.add(tag);
   root.scale.setScalar(1.5);
-  return{root,bank,spin,pelvis,spine,neck,armL,armR,foreL,foreR,legL,legR,shinL,shinR,fins:[finL,finR],vpole,skate,chute,boat,oarL,oarR,surf,faceM,gog,skin,ski,polesL,polesR,board,bike,wF,wR,crank,wings,jets,bflame,shield,stars,tag,badgeM,badgeParts,
+  return{root,bank,spin,pelvis,spine,neck,armL,armR,foreL,foreR,legL,legR,shinL,shinR,fins:[finL,finR],vpole,skate,chute,canopy,rig,clines,slider,boat,oarL,oarR,surf,faceM,gog,skin,ski,polesL,polesR,board,bike,wF,wR,crank,wings,jets,bflame,shield,stars,tag,badgeM,badgeParts,
     bodyMat,helmMat,paintMat,wingMat,skiMat,mats:[bodyMat,helmMat,paintMat,wingMat,skiMat,badgeM,ringM,faceM]};
 }
 function wingGeo(){
@@ -1942,8 +1962,12 @@ function poseRider(r,t,standing){
     else{const c=r.pedal*1.25;crouch(.12);Sp.rotation.x=.28;m.legL.rotation.x=Math.sin(c)*.95-.1;m.legR.rotation.x=-Math.sin(c)*.95-.1;m.shinL.rotation.x=.4+Math.max(0,-Math.sin(c))*1.3;m.shinR.rotation.x=.4+Math.max(0,Math.sin(c))*1.3;m.armL.rotation.x=m.armR.rotation.x=-.95;m.foreL.rotation.x=m.foreR.rotation.x=-.7;m.armL.rotation.z=-.15;m.armR.rotation.z=.15}}
   else if(mod==='skate'){const lv=clamp(r.latV||0,-3,3);P.rotation.y=.95;crouch(.98);P.position.y+=.11;m.legL.rotation.z=.12;m.legR.rotation.z=-.12;Sp.rotation.x=.78;Sp.rotation.y=-.38;Sp.rotation.z=lv*.04;m.neck.rotation.x=-.85;m.neck.rotation.y=-.62;
     m.armL.rotation.x=m.armR.rotation.x=.75;m.armL.rotation.z=.1;m.armR.rotation.z=-.1;m.foreL.rotation.x=m.foreR.rotation.x=-.25}
-  else if(mod==='paraquedas'){if(r.chuteOpen&&(r.collapse||0)>.05){crouch(.12);m.armL.rotation.z=.35;m.armR.rotation.z=-.35}
-    else if(r.chuteOpen){const fl=r.flare||0;crouch(.04);m.armL.rotation.x=m.armR.rotation.x=lerp(-2.75,-.45,fl)+(r.latV>0?.2:-.2)*0;m.armL.rotation.z=.18;m.armR.rotation.z=-.18;m.foreL.rotation.x=m.foreR.rotation.x=-.2;m.legL.rotation.x=-.35+Math.sin(t*1.3+r.phase)*.12;m.legR.rotation.x=-.25-Math.sin(t*1.3+r.phase)*.12}
+  else if(mod==='paraquedas'){
+    if(r.grounded){const c=(r.stroke||0)*1.35,sw=Math.sin(c);P.position.y=.93+Math.abs(Math.cos(c))*.05;Sp.rotation.x=.2;m.neck.rotation.x=-.1;m.legL.rotation.x=-sw*.8;m.legR.rotation.x=sw*.8;m.shinL.rotation.x=.25+Math.max(0,sw)*1.25;m.shinR.rotation.x=.25+Math.max(0,-sw)*1.25;
+      m.armL.rotation.x=sw*.85;m.armR.rotation.x=-sw*.85;m.foreL.rotation.x=m.foreR.rotation.x=-1.3;m.armL.rotation.z=.14;m.armR.rotation.z=-.14}
+    else if(r.chuteOpen){const fl=r.flare||0,sw=Math.sin(t*1.3+r.phase)*.06;P.position.y=.96;Sp.rotation.x=-.06;m.neck.rotation.x=.12-fl*.2;
+      m.legL.rotation.x=lerp(-.55,-.2,fl)+sw;m.legR.rotation.x=lerp(-.48,-.2,fl)-sw;m.shinL.rotation.x=lerp(.75,.3,fl);m.shinR.rotation.x=lerp(.68,.3,fl);m.legL.rotation.z=.07;m.legR.rotation.z=-.07;
+      const st=clamp((r.latV||0)*.12,-.35,.35);m.armL.rotation.x=lerp(-2.25,-.35,fl)+Math.max(0,st)*1.1;m.armR.rotation.x=lerp(-2.25,-.35,fl)+Math.max(0,-st)*1.1;m.armL.rotation.z=lerp(.42,.3,fl);m.armR.rotation.z=-lerp(.42,.3,fl);m.foreL.rotation.x=m.foreR.rotation.x=lerp(-.75,-.25,fl)}
     else{P.position.set(0,1,0);P.rotation.x=Math.PI/2*.94;Sp.rotation.x=-.18;m.armL.rotation.z=1.38;m.armR.rotation.z=-1.38;m.armL.rotation.x=m.armR.rotation.x=-.4;m.foreL.rotation.x=m.foreR.rotation.x=-1.45;m.legL.rotation.z=.3;m.legR.rotation.z=-.3;m.legL.rotation.x=m.legR.rotation.x=.15;m.shinL.rotation.x=m.shinR.rotation.x=1.25;m.neck.rotation.x=-1.25;const f=Math.sin(t*9+r.phase)*.04;m.armL.rotation.z+=f;m.armR.rotation.z-=f}}
   else if(mod==='remo'){const ph=((r.stroke||0)/(2*Math.PI))%1,dr=ph<.42?ph/.42:1-(ph-.42)/.58,dk=smooth(0,1,dr);P.position.set(0,.33,lerp(-.38,.28,dk));P.rotation.y=Math.PI;
     m.legL.rotation.x=m.legR.rotation.x=lerp(-2.3,-1.52,dk);m.shinL.rotation.x=m.shinR.rotation.x=lerp(2.25,.15,dk);m.legL.rotation.z=.06;m.legR.rotation.z=-.06;
@@ -2036,12 +2060,12 @@ function createRacer(login,name,color,isBot){
   return r;
 }
 function removeRacer(r){disposeRider(r.m);racers.delete(r.login)}
-function resetRacers(){let k=0;for(const r of racers.values()){r.s=START_S-5-Math.floor(k/5)*3.6;r.lat=((k%5)-2)*2.4;r.latT=r.lat;r.v=0;r.finished=false;r.place=0;r.time=0;for(const f in r.fx)r.fx[f]=0;r.lane=k;r.cd={};r.air=null;r.vb=null;r.vaultU=null;r.coins=0;r.out=false;r.landed=false;r.steered=false;r.chuteT=0;r.hop=0;r.skill=rand(.95,1.05);r.mod='';r.botT=rand(3,7);k++}}
+function resetRacers(){let k=0;for(const r of racers.values()){r.s=START_S-5-Math.floor(k/5)*3.6;r.lat=((k%5)-2)*2.4;r.latT=r.lat;r.v=0;r.finished=false;r.place=0;r.time=0;for(const f in r.fx)r.fx[f]=0;r.lane=k;r.cd={};r.air=null;r.vb=null;r.vaultU=null;r.coins=0;r.out=false;r.landed=false;r.steered=false;r.chuteT=null;r.tdS=null;r.grounded=false;r.hop=0;r.skill=rand(.95,1.05);r.mod='';r.botT=rand(3,7);k++}}
 const TA={pos:new V3(),tan:new V3(),side:new V3(),mod:'',surface:'',seg:0,lu:0,ground:0,i:0};
 const CTA={pos:new V3(),tan:new V3(),side:new V3(),mod:'',surface:'',seg:0,lu:0,ground:0,i:0};
 function trackAt(s,o){const S=W.S,f=clamp(s/DS,0,S.length-1.0001),i=f|0,t=f-i,a=S[i],b=S[i+1];
   o.pos.lerpVectors(a.p,b.p,t);o.tan.lerpVectors(a.t,b.t,t).normalize();o.side.lerpVectors(a.sd,b.sd,t).normalize();
-  o.mod=a.mod;o.surface=a.surface;o.seg=a.seg;o.lu=a.lu;o.ground=lerp(a.ground,b.ground,t);o.i=i;return o}
+  o.mod=a.mod;o.surface=a.surface;o.seg=a.seg;o.lu=a.lu;o.last=a.last;o.ground=lerp(a.ground,b.ground,t);o.i=i;return o}
 const _look=new V3(),_v=new V3();
 function updateRacer(r,dt,t){
   const e=r.fx;for(const k in e)if(e[k]>0)e[k]=Math.max(0,e[k]-dt);
@@ -2050,7 +2074,7 @@ function updateRacer(r,dt,t){
   const standing=air&&(TA.lu<.025)&&r.v<8;
   if(TA.mod!==r.mod){const was=r.mod;r.mod=TA.mod;setVehicle(r,r.mod);if(was&&G.state==='race'){burst(r.root.position.clone().setY(r.root.position.y+1.5),30,[1,1,1],9,2,1,0,3);burst(r.root.position.clone().setY(r.root.position.y+1.5),20,[1,.8,.4],8,1,.6,0,0,GLOW);if(!W.segFirst[TA.seg]){W.segFirst[TA.seg]=true;sfx(TA.mod==='nado'?'splash':'whoosh');banner('TROCA!',`${M.icon} ${M.label}`,1.8)}}}
   let target=0;
-  if(G.state==='race'&&!r.finished){target=M.speed*r.skill;if(TA.mod==='paraquedas'&&TA.lu>.4)target*=.45;if(e.boost>0)target*=1.65;if(e.slow>0)target*=.45;if(G.windT>0)target*=1.25;if(G.slowT>0)target*=.8;target*=1+clamp((G.leaderS-r.s)/420,0,.18);if(e.stun>0||e.stuck>0)target=0}
+  if(G.state==='race'&&!r.finished){target=M.speed*r.skill;if(TA.mod==='paraquedas'&&TA.lu>.4)target*=TA.lu>=W.bounds[TA.seg].td?.3:.45;if(e.boost>0)target*=1.65;if(e.slow>0)target*=.45;if(G.windT>0)target*=1.25;if(G.slowT>0)target*=.8;target*=1+clamp((G.leaderS-r.s)/420,0,.18);if(e.stun>0||e.stuck>0)target=0}
   else if(r.finished)target=Math.max(0,(W.L-8-r.s))*.8;
   const k=e.stun>0?5:target>r.v?(e.boost>0?3:1.3):2.2;
   r.v+=(target-r.v)*(1-Math.exp(-k*dt));
@@ -2071,16 +2095,23 @@ function updateRacer(r,dt,t){
       if(r.vok){r.vaultU=u;jump+=Math.sin(Math.PI*u)*7.4*gm;r.m.spin.rotation.x=-2.5*Math.sin(Math.PI*Math.min(u/.9,1))*(u<.9?1:0)}
       else{jump+=Math.sin(Math.PI*Math.min(u,.5))*4.4;if(u>.45&&!r.vfail&&G.state==='race'){r.vfail=true;stun(r,1.5);b.fall=1;sfx('crash',r.isBot?.5:1);if(!r.isBot||Math.random()<.4)feed(`🏃 <b>${esc(r.name)}</b> derrubou o sarrafo`)}}}}
   if(TA.mod==='windsurf'&&!r.air&&G.state==='race'&&!r.finished&&Math.random()<dt*.22)r.air={t:0,dur:.85,h:2.6*gm};
-  r.chuteOpen=TA.mod==='paraquedas'&&TA.lu>.4;r.flare=TA.mod==='paraquedas'?smooth(.95,.98,TA.lu)*(1-smooth(.985,.99,TA.lu)):0;
-  if(TA.mod==='paraquedas'){const ch=r.m.chute,cn=ch.getObjectByName('canopy'),sl=ch.getObjectByName('slider');if(r.chuteOpen){if(!ch.visible){ch.visible=true;r.chuteT=0;r.collapse=0;ch.position.set(0,5.6,0);ch.rotation.set(0,0,0);if(!r.isBot)sfx('whoosh',.7)}r.chuteT=Math.min(1,(r.chuteT||0)+dt*.9);const k=r.chuteT;
-      cn.scale.set(.12+.88*smooth(.25,.85,k),.6+.4*smooth(.2,.7,k),.35+.65*smooth(.15,.6,k));if(sl)sl.position.y=lerp(-.9,-3.55,smooth(.3,1,k));
-      const fl=smooth(.95,.98,TA.lu);ch.rotation.z=lerp(ch.rotation.z,clamp(-r.latV*.16,-.5,.5),1-Math.exp(-dt*3));ch.rotation.x=Math.sin(t*1.2+r.phase)*.04-fl*.3;
-      if(TA.lu>.985||r.finished){r.collapse=Math.min(1,(r.collapse||0)+dt*.8);const c=smooth(0,1,r.collapse);ch.position.set(0,lerp(5.6,.9,c),lerp(0,-4.2,c));ch.rotation.x=-1.25*c;cn.scale.y*=1-.65*c}}else ch.visible=false;
-    if(TA.lu>.82&&!r.steered){r.steered=true;r.latT=rand(-1,1)*(Math.random()<.5?1.3:5)}
-    if(TA.lu>.965&&!r.landed&&G.state==='race'){r.landed=true;if(Math.abs(r.lat)<2.2){r.fx.boost=Math.max(r.fx.boost,2.5);if(!r.isBot||Math.random()<.5)feed(`🎯 <b>${esc(r.name)}</b> pousou no centro do alvo! +turbo`)}}}
-  else{r.steered=false;if(r.m.chute.visible)r.m.chute.visible=false}
+  const pq=TA.mod==='paraquedas',pqTd=pq?W.bounds[TA.seg].td:1;
+  r.grounded=pq&&TA.lu>=pqTd;r.chuteOpen=pq&&TA.lu>.4;r.flare=pq&&!r.grounded?smooth(pqTd-.05,pqTd-.008,TA.lu):0;
+  if(pq){const ch=r.m.chute,cn=r.m.canopy;
+    if(r.chuteOpen){if(r.chuteT==null){r.chuteT=0;r.tdS=null;ch.rotation.set(0,0,0);if(!r.isBot&&G.state==='race')sfx('whoosh',.7)}
+      r.chuteT=Math.min(1,r.chuteT+dt*.9);const k=r.chuteT;
+      if(!r.grounded){r.tdS=null;ch.visible=r.m.rig.visible=r.m.clines.visible=true;cn.scale.set(.1+.9*smooth(.25,.85,k),.55+.45*smooth(.2,.7,k),.4+.6*smooth(.15,.6,k));r.m.slider.position.y=lerp(-.8,-2.75,smooth(.3,1,k));ch.rotation.y=0;
+        ch.position.set(0,4.75,0);ch.rotation.z=lerp(ch.rotation.z,clamp(-r.latV*.14,-.45,.45),1-Math.exp(-dt*3));ch.rotation.x=.1+Math.sin(t*1.2+r.phase)*.03-r.flare*.42}
+      else{if(r.tdS==null)r.tdS=r.s;const d=(r.s-r.tdS)/1.5,c=smooth(0,8,d);r.m.rig.visible=false;r.m.clines.visible=c<.2;
+        ch.rotation.z=lerp(ch.rotation.z,0,1-Math.exp(-dt*4));ch.rotation.x=-.32-Math.sin(Math.PI*c)*.7+c*.28;ch.rotation.y=c*.4*(r.phase>5?1:-1);ch.position.set(0,lerp(4.75,.16,c),-d-c*1.6);cn.scale.set(lerp(1,.86,c),lerp(1,.13,c),lerp(1,.92,c));ch.visible=d<50}}
+    else{ch.visible=false;r.chuteT=null}
+    if(TA.lu>pqTd-.14&&!r.steered){r.steered=true;r.latT=rand(-1,1)*(Math.random()<.5?1.3:5)}
+    if(r.grounded&&!r.landed&&G.state==='race'){r.landed=true;for(let q=0;q<10;q++)PUFF.emit(TA.pos.x+rand(-.8,.8),TA.ground+.2,TA.pos.z+rand(-.8,.8),rand(-2,2),rand(.5,2),rand(-2,2),.72,.66,.56,rand(.6,1.2),.8,.5,.5,2);
+      if(Math.abs(r.lat)<2.2){r.fx.boost=Math.max(r.fx.boost,2.5);if(!r.isBot||Math.random()<.5)feed(`🎯 <b>${esc(r.name)}</b> pousou no centro do alvo! +turbo`)}}}
+  else{r.steered=false;if(r.m.chute.visible)r.m.chute.visible=false;r.chuteT=null}
   const P=r.root.position;P.copy(TA.pos).addScaledVector(TA.side,r.lat);P.y=TA.pos.y+.22+jump;
-  if(air&&!standing){const env=smooth(.03,.15,TA.lu)*(1-smooth(.8,1,TA.lu));P.y+=Math.sin(t*1.1+r.phase)*1.6*env-.22+env*.6}
+  if(r.grounded)P.y=TA.ground+.02+jump;
+  else if(air&&!standing){const env=smooth(.03,.15,TA.lu)*(pq?(1-smooth(pqTd-.16,pqTd-.03,TA.lu))*.4:(1-smooth(.8,1,TA.lu)));P.y+=Math.sin(t*1.1+r.phase)*1.6*env-.22+env*.6}
   const climb=TA.mod==='escalada',swim=TA.mod==='nado';
   if(climb){_v.set(TA.tan.x,0,TA.tan.z).normalize();P.addScaledVector(_v,-.62);P.y=TA.pos.y-.3+jump;_look.copy(P).add(_v);if(e.stun>0)r.s=Math.max(r.s-dt*5,W.bounds[TA.seg].a*W.L+2)}
   else if(swim){const under=W.water&&TA.pos.y<W.water.level-1;const lv=W.water?W.water.level:TA.pos.y;r.wade=W.water&&W.water.last&&TA.last?smooth(lv-1.2,lv-.25,TA.ground):0;
@@ -2117,7 +2148,7 @@ function updateRacer(r,dt,t){
       else if(M.surface==='rio'||M.surface==='mar'){const ph=((r.stroke||0)/(2*Math.PI))%1;if(M.surface==='mar'||ph<.08){for(let q=0;q<(M.surface==='mar'?2:3);q++)PUFF.emit(P.x-TA.tan.x*1.2+rand(-.5,.5)+(M.surface==='rio'?TA.side.x*rand(-3.3,3.3):0),P.y+.12,P.z-TA.tan.z*1.2+rand(-.5,.5)+(M.surface==='rio'?TA.side.z*rand(-3.3,3.3):0),-TA.tan.x*r.v*.08+TA.side.x*rand(-2,2),rand(.6,2.4),-TA.tan.z*r.v*.08+TA.side.z*rand(-2,2),1.05,1.1,1.15,rand(.25,.55),.55,6,.6,1)}}
       else if(M.surface==='pista'){if(Math.random()<.4)PUFF.emit(P.x+rand(-.3,.3),P.y+.15,P.z+rand(-.3,.3),rand(-.6,.6),rand(.3,1),rand(-.6,.6),.55,.5,.4,rand(.4,.8),.5,.5,.35,1.5)}
       else if(M.surface==='rock'){if(Math.random()<.25)PUFF.emit(P.x+rand(-.5,.5),P.y+rand(2.2,3.4),P.z+rand(-.5,.5),rand(-.4,.4),rand(-.6,.2),rand(-.4,.4),1.1,1.1,1.1,rand(.25,.55),.9,-.1,.55,.8)}
-      else if(!standing){if(r.mod==='rocket'){GLOW.emit(P.x-TA.tan.x*1.5,P.y+1.15,P.z-TA.tan.z*1.5,-TA.tan.x*9,rand(-1,1),-TA.tan.z*9,2.5,1.1,.35,rand(.6,1),.35,0,1);PUFF.emit(P.x-TA.tan.x*2,P.y+1.15,P.z-TA.tan.z*2,0,.4,0,.75,.75,.8,1.3,1.4,0,.3,2.2)}
+      else if(air&&!standing&&!pq){if(r.mod==='rocket'){GLOW.emit(P.x-TA.tan.x*1.5,P.y+1.15,P.z-TA.tan.z*1.5,-TA.tan.x*9,rand(-1,1),-TA.tan.z*9,2.5,1.1,.35,rand(.6,1),.35,0,1);PUFF.emit(P.x-TA.tan.x*2,P.y+1.15,P.z-TA.tan.z*2,0,.4,0,.75,.75,.8,1.3,1.4,0,.3,2.2)}
         else for(const sd of[-1.45,1.45])GLOW.emit(P.x+TA.side.x*sd,P.y+1,P.z+TA.side.z*sd,0,0,0,.6,.65,.75,.35,.8,0,.6,-.1)}
       if(TA.mod==='paraquedas'&&!r.chuteOpen&&Math.random()<.5)GLOW.emit(P.x+rand(-2,2),P.y+rand(0,3),P.z+rand(-2,2),-TA.tan.x*20,-TA.tan.y*20+8,-TA.tan.z*20,.5,.55,.6,.18,.35,0,.5);
       if(e.boost>0)GLOW.emit(P.x-TA.tan.x*1.2,P.y+1.5,P.z-TA.tan.z*1.2,-TA.tan.x*6+rand(-1,1),rand(0,2),-TA.tan.z*6+rand(-1,1),3,rand(1,1.8),.3,rand(.5,1),.4,0,1);
@@ -2223,7 +2254,7 @@ function enterLobby(first){
   resetRacers();for(const r of racers.values())updateRacer(r,0,0);
   G.state='lobby';G.timer=racers.size?(first?lobbyTime():CFG.lobbyNext):Infinity;G.first=first;
   G.maxT=Math.round(W.L/16*1.8);setMusicRound(G.round);G.elimT=30;
-  if(def.rules.includes('chuva')){FOGU.uCloud.value.set(.85,.95);sun.intensity*=.5;FOGU.uFogP.value.x*=1.8;SKY=Object.assign({},SKY,{fog:[SKY.fog[0]*1.8,SKY.fog[1],SKY.fog[2]*1.6]})}
+  if(def.rules.includes('chuva')){FOGU.uCloud.value.set(.85,.95);sun.intensity*=.5;FOGU.uFogP.value.x*=1.3;SKY=Object.assign({},SKY,{fog:[SKY.fog[0]*1.3,SKY.fog[1],SKY.fog[2]*1.25]})}
   $('lobbyRound').textContent=CFG.rounds>0?`RODADA ${G.champ+1} DE ${CFG.rounds}`:`RODADA ${G.champ+1}`;
   $('lobbyRules').innerHTML=def.rules.map(k=>`<span class="rule">${RULES[k].icon} <b>${RULES[k].label}</b> ${RULES[k].desc}</span>`).join('');$('lobbyName').textContent=def.name;
   $('lobbySegs').innerHTML=def.segs.map(([m],i)=>`<div class="rt"><div class="ri">${MODS[m].icon}</div><div class="rl">${MODS[m].label}<small>TRECHO ${i+1}</small></div></div>`).join('<div class="rline"></div>');
@@ -2282,7 +2313,7 @@ function updateCamera(dt,t){
     const f=spot||G.rank.find(r=>!r.finished)||G.rank[0];if(!f)return;
     if(f!==CAM.focus){CAM.focus=f}
     CAM.shotT-=dt;if(CAM.shotT<=0){CAM.shot=spot?'chase':pick(SHOTS);CAM.shotT=rand(6,10)}
-    trackAt(f.s,CTA);const air=CTA.surface==='air',fp=f.root.position;const shot=spot?'chase':CAM.shot;
+    trackAt(f.s,CTA);const pqLand=CTA.mod==='paraquedas'&&CTA.lu>=W.bounds[CTA.seg].td;const air=CTA.surface==='air'&&!pqLand,fp=f.root.position;const shot=spot?'chase':CAM.shot;
     const sfc=CTA.surface;
     if(sfc==='rock'){_v.set(CTA.tan.x,0,CTA.tan.z).normalize();_dp.copy(fp).addScaledVector(_v,-11.5).addScaledVector(CTA.side,Math.sin(t*.3)*4.5);_dp.y=fp.y+1.2;_dl.copy(fp);_dl.y+=3.4;k=2.4}
     else if(sfc==='water'&&!((f.wade||0)>.5)){if(shot==='front'){_dp.copy(fp).addScaledVector(CTA.tan,8);_dp.y=fp.y+2.1;_dl.copy(fp).addScaledVector(CTA.tan,-4);_dl.y+=1.5;k=2.6}
@@ -2291,7 +2322,7 @@ function updateCamera(dt,t){
     else if(shot==='low'){_dp.copy(fp).addScaledVector(CTA.tan,-7.5).addScaledVector(CTA.side,4.2);_dp.y=fp.y+1.1;_dl.copy(fp).addScaledVector(CTA.tan,10);_dl.y+=1.8;k=3.4}
     else if(shot==='drone'){_dp.copy(fp).addScaledVector(CTA.tan,-18).addScaledVector(CTA.side,10);_dp.y=fp.y+16;_dl.copy(fp).addScaledVector(CTA.tan,6);k=1.8}
     else if(shot==='side'){_dp.copy(fp).addScaledVector(CTA.side,12).addScaledVector(CTA.tan,2);_dp.y=fp.y+2.6;_dl.copy(fp).addScaledVector(CTA.tan,4);_dl.y+=1.2;k=2.8}
-    else{const pq=CTA.mod==='paraquedas',open=pq&&CTA.lu>.4;const back=open?15:air?14:10.5,h=open?2.2:air?4.2:4.4;_dp.copy(fp).addScaledVector(CTA.tan,-back);_dp.y=fp.y+h+Math.max(0,-CTA.tan.y)*back*.3;_dp.addScaledVector(CTA.side,Math.sin(t*.21)*4);_dl.copy(fp).addScaledVector(CTA.tan,9);_dl.y+=open?5.5:1.6;k=3.2;
+    else{const pq=CTA.mod==='paraquedas',open=pq&&CTA.lu>.4&&!pqLand;const back=open?13.5:air?14:10.5,h=open?3.6:air?4.2:4.4;_dp.copy(fp).addScaledVector(CTA.tan,-back);_dp.y=fp.y+h+Math.max(0,-CTA.tan.y)*back*.3;_dp.addScaledVector(CTA.side,Math.sin(t*.21)*4);_dl.copy(fp).addScaledVector(CTA.tan,9);_dl.y+=open?3.6:1.6;k=3.2;
       rollT=air?clamp(f.m.bank.rotation.z*.35,-.25,.25):0}
     const spd=clamp(f.v/40,0,1.2);CAM.shake=Math.max(CAM.shake,spd*.06);
     }
@@ -2302,7 +2333,7 @@ function updateCamera(dt,t){
   if(CAM.shake>0){CAM.shake=Math.max(0,CAM.shake-dt*.8);camera.position.x+=(Math.sin(t*37)+Math.sin(t*61))*CAM.shake*.3;camera.position.y+=(Math.sin(t*43)+Math.sin(t*71))*CAM.shake*.3}
   camera.lookAt(CAM.look);CAM.roll=lerp(CAM.roll,rollT,1-Math.exp(-dt*2));camera.rotateZ(CAM.roll);
   const boost=G.state==='race'&&CAM.focus&&CAM.focus.fx.boost>0;const fovT=boost?72:(G.state==='race'?62:55);camera.fov=lerp(camera.fov,fovT,1-Math.exp(-dt*3));camera.updateProjectionMatrix();
-  if(post.grade)post.grade.uniforms.uBoost.value=lerp(post.grade.uniforms.uBoost.value,boost?1:(G.state==='race'&&CAM.focus&&MODS[CAM.focus.mod||'bike'].surface==='air'?.35:0),1-Math.exp(-dt*4));
+  if(post.grade)post.grade.uniforms.uBoost.value=lerp(post.grade.uniforms.uBoost.value,boost?1:(G.state==='race'&&CAM.focus&&MODS[CAM.focus.mod||'bike'].surface==='air'&&!CAM.focus.chuteOpen?.1:0),1-Math.exp(-dt*4));
 }
 
 // ======================================================================
@@ -2349,7 +2380,7 @@ $('btnPad').onclick=()=>$('pad').classList.toggle('show');
 function updatePad(){const r=racers.get(ME);$('btnJoin').textContent=r||pending.has(ME)?'SAIR':'ENTRAR';
   document.querySelectorAll('#padCmds button').forEach(b=>{const c=b.dataset.cmd;const can=r&&G.state==='race'&&!r.finished;const left=r?Math.max(0,(r.cd[c]||0)-G.clock):0;b.disabled=!can||left>0;b.style.setProperty('--cd',r&&left>0?(left/COOL[c]).toFixed(3):0)});
   const fot=`Fotos de perfil: ${AVSTAT.ok} carregadas${AVSTAT.html?` · ${AVSTAT.html} só no placar`:''}${AVSTAT.fail?` · ${AVSTAT.fail} sem foto`:''}.`;
-  $('padNote').textContent=G.twitch==='ok'?`Conectado ao chat de #${CFG.channel}. ${fot}`:G.twitch==='blocked'?'Este visualizador não permite conexão com a Twitch. Teste aqui com os botões; no OBS o chat conecta sozinho.':'Conectando ao chat da Twitch…'}
+  const pf=perf.fps?` Imagem: ${Math.round(DR*100)}% da resolução, ${Math.round(perf.fps)} fps.`:'';$('padNote').textContent=G.twitch==='ok'?`Conectado ao chat de #${CFG.channel}. ${fot}${pf}`:G.twitch==='blocked'?'Este visualizador não permite conexão com a Twitch. Teste aqui com os botões; no OBS o chat conecta sozinho.':'Conectando ao chat da Twitch…'}
 addEventListener('keydown',e=>{if(e.target.tagName==='INPUT'||e.target.tagName==='SELECT')return;if(e.key==='c'||e.key==='C')$('pad').classList.toggle('show');const n=+e.key;if(n>=1&&n<=9)handleChat(ME,myName(),null,'!'+PAD_CMDS[n-1][0])});
 
 // ---- câmera do espectador: scroll troca de piloto, arrastar gira, Shift+scroll aproxima, duplo clique volta ao automático
@@ -2587,7 +2618,7 @@ function frame(){
   sky.position.copy(camera.position);
   const ts=sun.shadow.camera.right*2/QL.shadow;_sunP.copy(CAM.look);_sunP.x=Math.round(_sunP.x/ts)*ts;_sunP.z=Math.round(_sunP.z/ts)*ts;
   sun.target.position.copy(_sunP);sun.position.copy(_sunP).addScaledVector(SUN_DIR,450);
-  const fogMul=G.fogT>0?5:1;FOGU.uFogP.value.x=lerp(FOGU.uFogP.value.x,SKY.fog[0]*fogMul,1-Math.exp(-dt*1.2));FOGU.uFogP.value.w=lerp(FOGU.uFogP.value.w,SKY.fog[2]*(G.fogT>0?8:1),1-Math.exp(-dt*1.2));
+  const fogMul=G.fogT>0?2.2:1;FOGU.uFogP.value.x=lerp(FOGU.uFogP.value.x,SKY.fog[0]*fogMul,1-Math.exp(-dt*1.2));FOGU.uFogP.value.w=lerp(FOGU.uFogP.value.w,SKY.fog[2]*(G.fogT>0?2.6:1),1-Math.exp(-dt*1.2));
   const light=new THREE.Color().copy(FOGU.uSunCol.value).multiplyScalar(SKY.sunI*.32).add(FOGU.uSkyHor.value.clone().multiplyScalar(.55));PUFF.mat.uniforms.uLight.value.copy(light);BUB.mat.uniforms.uLight.value.setRGB(.7,1.,1.15);
   if(grass){_tmp.set(0,0,-1).applyQuaternion(camera.quaternion);_tmp.y=0;_tmp.normalize();GRASSU.uCenter.value.set(camera.position.x+_tmp.x*40,camera.position.z+_tmp.z*40);grass.visible=camera.position.y-gridH(camera.position.x,camera.position.z)<80;if(cover)cover.visible=FOGU.uUnder.value.w>0}
   trackAt(CAM.focus&&G.state==='race'?CAM.focus.s:START_S,CTA);
@@ -2607,7 +2638,7 @@ function frame(){
   if(post.on){renderer.setRenderTarget(post.sceneRT);renderer.render(scene,camera);renderer.setRenderTarget(null);post.composer.render(rdt)}else renderer.render(scene,camera);
   // adaptive resolution
   perf.acc+=rdt;perf.frames++;if(perf.acc>2){const fps=perf.frames/perf.acc;perf.acc=0;perf.frames=0;
-    if(fps<42&&DR>.55){DR=Math.max(.55,DR*.86);resize()}else if(fps>57&&DR<1){DR=Math.min(1,DR*1.07);resize()}}
+    perf.fps=fps;const dmin=QL.drMin||.55;if(fps<42&&DR>dmin){DR=Math.max(dmin,DR*.9);resize()}else if(fps>57&&DR<1){DR=Math.min(1,DR*1.07);resize()}}
 }
 
 // ======================================================================

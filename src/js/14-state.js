@@ -12,7 +12,7 @@ function enterLobby(first){
   resetRacers();for(const r of racers.values())updateRacer(r,0,0);
   G.state='lobby';G.timer=racers.size?(first?lobbyTime():CFG.lobbyNext):Infinity;G.first=first;
   G.maxT=Math.round(W.L/16*1.8);setMusicRound(G.round);G.elimT=30;
-  if(def.rules.includes('chuva')){FOGU.uCloud.value.set(.85,.95);sun.intensity*=.5;FOGU.uFogP.value.x*=1.8;SKY=Object.assign({},SKY,{fog:[SKY.fog[0]*1.8,SKY.fog[1],SKY.fog[2]*1.6]})}
+  if(def.rules.includes('chuva')){FOGU.uCloud.value.set(.85,.95);sun.intensity*=.5;FOGU.uFogP.value.x*=1.3;SKY=Object.assign({},SKY,{fog:[SKY.fog[0]*1.3,SKY.fog[1],SKY.fog[2]*1.25]})}
   $('lobbyRound').textContent=CFG.rounds>0?`RODADA ${G.champ+1} DE ${CFG.rounds}`:`RODADA ${G.champ+1}`;
   $('lobbyRules').innerHTML=def.rules.map(k=>`<span class="rule">${RULES[k].icon} <b>${RULES[k].label}</b> ${RULES[k].desc}</span>`).join('');$('lobbyName').textContent=def.name;
   $('lobbySegs').innerHTML=def.segs.map(([m],i)=>`<div class="rt"><div class="ri">${MODS[m].icon}</div><div class="rl">${MODS[m].label}<small>TRECHO ${i+1}</small></div></div>`).join('<div class="rline"></div>');

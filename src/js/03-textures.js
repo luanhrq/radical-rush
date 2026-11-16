@@ -16,9 +16,9 @@ function detailTex(h,size,strength){
   for(let y=0;y<size;y++)for(let x=0;x<size;x++){const xl=(x-1+size)%size,xr=(x+1)%size,yu=(y-1+size)%size,yd=(y+1)%size;
     const dx=(h[y*size+xr]-h[y*size+xl])/rg*strength,dy=(h[yd*size+x]-h[yu*size+x])/rg*strength;let nx=-dx,ny=-dy,nz=1;const l=Math.hypot(nx,ny,nz);nx/=l;ny/=l;nz/=l;
     const i=(y*size+x)*4;data[i]=nx*127.5+127.5;data[i+1]=ny*127.5+127.5;data[i+2]=nz*127.5+127.5;data[i+3]=(h[y*size+x]-mn)/rg*255}
-  const t=new THREE.DataTexture(data,size,size,THREE.RGBAFormat);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.magFilter=THREE.LinearFilter;t.minFilter=THREE.LinearMipmapLinearFilter;t.generateMipmaps=true;t.anisotropy=8;t.needsUpdate=true;return t}
+  const t=new THREE.DataTexture(data,size,size,THREE.RGBAFormat);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.magFilter=THREE.LinearFilter;t.minFilter=THREE.LinearMipmapLinearFilter;t.generateMipmaps=true;t.anisotropy=16;t.needsUpdate=true;return t}
 const TEXU={tRock:{value:null},tGrass:{value:null},tSnow:{value:null},tSand:{value:null},tWaves:{value:null},tRockA:{value:null},tGrassA:{value:null},tSnowA:{value:null},tSandA:{value:null}};let CLOTH=null;
-function albTex(rgba,size){const t=new THREE.DataTexture(rgba,size,size,THREE.RGBAFormat);t.colorSpace=THREE.SRGBColorSpace;t.wrapS=t.wrapT=THREE.RepeatWrapping;t.magFilter=THREE.LinearFilter;t.minFilter=THREE.LinearMipmapLinearFilter;t.generateMipmaps=true;t.anisotropy=8;t.needsUpdate=true;return t}
+function albTex(rgba,size){const t=new THREE.DataTexture(rgba,size,size,THREE.RGBAFormat);t.colorSpace=THREE.SRGBColorSpace;t.wrapS=t.wrapT=THREE.RepeatWrapping;t.magFilter=THREE.LinearFilter;t.minFilter=THREE.LinearMipmapLinearFilter;t.generateMipmaps=true;t.anisotropy=16;t.needsUpdate=true;return t}
 function buildTexturesHD(){
   const rnd=mulberry(4242);const c8=v=>Math.max(0,Math.min(255,v*255|0));
   // rocha: relevo em camadas, fissuras, estratos, líquen e grãos minerais

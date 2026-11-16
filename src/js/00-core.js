@@ -6,11 +6,12 @@ import {UnrealBloomPass} from 'three/addons/postprocessing/UnrealBloomPass.js';
 import {ShaderPass} from 'three/addons/postprocessing/ShaderPass.js';
 import {RoundedBoxGeometry} from 'three/addons/geometries/RoundedBoxGeometry.js';
 import {GTAOPass} from 'three/addons/postprocessing/GTAOPass.js';
+import {FXAAShader} from 'three/addons/shaders/FXAAShader.js';
 
 // ======================================================================
 // CONFIG
 // ======================================================================
-const VERSION='1.9.1';
+const VERSION='2.0';
 const LS={get(k,d){try{const v=localStorage.getItem('rr.'+k);return v==null?d:v}catch(e){return d}},set(k,v){try{localStorage.setItem('rr.'+k,v)}catch(e){}}};
 const Q=new URLSearchParams(location.search);
 const CFG={
@@ -20,10 +21,10 @@ const CFG={
   rounds:+(Q.get('rodadas')||LS.get('rounds','5')),
 };
 const QP={
-  ultra:{pr:2,shadow:4096,grass:110000,trees:1,seg:440,bloom:1,rays:1,msaa:4,post:1,ao:16,aoHalf:0},
-  high:{pr:1.5,shadow:2048,grass:60000,trees:.85,seg:380,bloom:1,rays:1,msaa:4,post:1,ao:0,aoHalf:0},
-  medium:{pr:1.15,shadow:2048,grass:26000,trees:.6,seg:300,bloom:1,rays:0,msaa:2,post:1},
-  low:{pr:.85,shadow:1024,grass:0,trees:.4,seg:220,bloom:0,rays:0,msaa:0,post:0},
+  ultra:{pr:2,shadow:4096,grass:110000,trees:1,seg:440,bloom:1,rays:1,msaa:4,post:1,ao:16,aoHalf:0,fxaa:1,drMin:.75},
+  high:{pr:1.5,shadow:2048,grass:60000,trees:.85,seg:380,bloom:1,rays:1,msaa:4,post:1,ao:0,aoHalf:0,fxaa:1,drMin:.72},
+  medium:{pr:1.15,shadow:2048,grass:26000,trees:.6,seg:300,bloom:1,rays:0,msaa:2,post:1,fxaa:1,drMin:.66},
+  low:{pr:.85,shadow:1024,grass:0,trees:.4,seg:220,bloom:0,rays:0,msaa:0,post:0,drMin:.55},
 };
 if(!QP[CFG.quality])CFG.quality='high';
 let QL=QP[CFG.quality];

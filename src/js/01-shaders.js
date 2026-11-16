@@ -3,7 +3,7 @@
 // ======================================================================
 const FOGU={
   uSunDir:{value:new V3(0,1,0)},uSunCol:{value:new THREE.Color(1,1,1)},uSkyTop:{value:new THREE.Color()},uSkyHor:{value:new THREE.Color()},
-  uFogP:{value:new THREE.Vector4(.004,.006,0,.0001)},uTime:{value:0},uCloud:{value:new THREE.Vector2(.45,.6)},uGround:{value:new THREE.Color(.2,.2,.2)},uUnder:{value:new THREE.Vector4(0,0,0,0)},uWater:{value:new THREE.Vector2(0,0)},
+  uFogP:{value:new THREE.Vector4(.004,.006,0,.0001)},uTime:{value:0},uCloud:{value:new THREE.Vector2(.45,.6)},uGround:{value:new THREE.Color(.2,.2,.2)},uUnder:{value:new THREE.Vector4(0,0,0,0)},uWater:{value:new THREE.Vector2(0,0)},uFogTint:{value:new THREE.Color(.6,.7,.85)},
 };
 const GLSL_NOISE=`
 float rr_hash(vec2 p){vec3 p3=fract(vec3(p.xyx)*.1031);p3+=dot(p3,p3.yzx+33.33);return fract((p3.x+p3.y)*p3.z);}
@@ -12,11 +12,11 @@ float rr_vnoise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mi
 float rr_fbm(vec2 p){float s=0.,a=.5;for(int i=0;i<5;i++){s+=a*rr_vnoise(p);p=p*2.03+vec2(17.1,9.3);a*=.5;}return s;}
 `;
 const GLSL_SKY=`
-uniform vec3 uSunDir;uniform vec3 uSunCol;uniform vec3 uSkyTop;uniform vec3 uSkyHor;uniform vec4 uFogP;uniform float uTime;uniform vec2 uCloud;uniform vec3 uGround;uniform vec4 uUnder;uniform vec2 uWater;
+uniform vec3 uSunDir;uniform vec3 uSunCol;uniform vec3 uSkyTop;uniform vec3 uSkyHor;uniform vec4 uFogP;uniform float uTime;uniform vec2 uCloud;uniform vec3 uGround;uniform vec4 uUnder;uniform vec2 uWater;uniform vec3 uFogTint;
 ${GLSL_NOISE}
 vec3 rr_sky(vec3 d){float h=max(d.y,0.);vec3 c=mix(uSkyHor,uSkyTop,pow(h,.42));float s=max(dot(d,uSunDir),0.);
  c+=uSunCol*(pow(s,5.)*.22+pow(s,64.)*.55);c+=uSunCol*.2*pow(1.-h,5.)*s*s;return c;}
-vec3 rr_fogCol(vec3 d){return rr_sky(normalize(vec3(d.x,max(d.y,0.)*.3+.015,d.z)));}
+vec3 rr_fogCol(vec3 d){vec3 dd=normalize(vec3(d.x,max(d.y,0.)*.3+.015,d.z));float s=max(dot(dd,uSunDir),0.);return mix(uFogTint,rr_sky(dd),.16+.6*s*s*s)*.92;}
 float rr_aerial(float dist,vec3 rd){float a=uFogP.x,b=uFogP.y;float camH=cameraPosition.y-uFogP.z;
  float c=a*exp(-camH*b);float k=rd.y*b;float t=abs(k)>1e-5?(1.-exp(-dist*k))/k:dist;
  float hf=1.-exp(-c*max(t,0.));float hz=1.-exp(-dist*uFogP.w);return clamp(1.-(1.-hf)*(1.-hz),0.,1.);}

@@ -152,22 +152,35 @@ function makeRider(color,name,pal){
     for(const z of[.34,-.34]){mk(T(new RoundedBoxGeometry(.07,.025,.1,2,.008),0,.09,z),M_METAL,skate);mk(T(new THREE.CylinderGeometry(.018,.022,.04,8),0,.068,z),M_METAL,skate);mk(T(new THREE.CylinderGeometry(.009,.009,.27,6),0,.046,z,0,0,Math.PI/2),M_METAL,skate);
       for(const x of[-.12,.12])mk(T(new THREE.CylinderGeometry(.036,.036,.05,16),x,.036,z,0,0,Math.PI/2),wm,skate)}}
   skate.visible=false;
-  const chute=new THREE.Group();chute.position.y=5.6;root.add(chute);
-  {const NC=9,SP=5.8,CH=2.3,R=3.6,NX=NC*6,NZ=12,P2=[],C2=[],I2=[];const pal=[prim,prim,acc,0xf4f4f4,prim,0xf4f4f4,acc,prim,prim].map(c=>new THREE.Color(c));
-    const thick=u=>.34*Math.sqrt(.05+u*.95)*Math.pow(1-u,1.1)+.012;
-    const pt=(xu,u,top)=>{const x=(xu-.5)*SP,cf=(xu*NC)%1,bul=Math.sin(cf*Math.PI)*.075*(1-u*.4);const y=top?thick(u)*.62+bul:-thick(u)*.38-bul*.22;const a=x/SP*1.75,rr=R+y;return[Math.sin(a)*rr,Math.cos(a)*rr-R,CH*(.45-u)]};
-    for(const top of[1,0]){const o=P2.length/3;for(let i=0;i<=NX;i++)for(let j=0;j<=NZ;j++){const xu=i/NX,u=j/NZ;P2.push(...pt(xu,u,top));const cell=Math.min(NC-1,Math.floor(xu*NC));const c=pal[cell];const k=top?1:.62;C2.push(c.r*k,c.g*k,c.b*k)}
+  const chute=new THREE.Group();chute.position.y=4.75;root.add(chute);
+  const canopy=new THREE.Group(),rig=new THREE.Group();chute.add(canopy,rig);let clines,slider;
+  {const NC=9,SP=6.7,CH=2.75,ARC=1.02,R=SP/ARC,NX=NC*6,NZ=14,P2=[],C2=[],I2=[];const pal=[acc,prim,prim,prim,0xf4f4f4,prim,prim,prim,acc].map(c=>new THREE.Color(c));
+    const thick=u=>lerp(.17,.34,ssj(0,.2,u))*Math.pow(1-ssj(.2,1,u),.85)+.012;
+    const pt=(xu,u,top)=>{const x=(xu-.5)*SP,cf=(xu*NC)%1,bul=Math.sin(cf*Math.PI)*.07*(1-u*.5);const y=top?thick(u)*.68+bul:-thick(u)*.32-bul*.2;const a=x/R,rr=R+y;return[Math.sin(a)*rr,Math.cos(a)*rr-R,CH*(.42-u)-Math.abs(xu-.5)*.25]};
+    // extradorso e intradorso
+    for(const top of[1,0]){const o=P2.length/3;for(let i=0;i<=NX;i++)for(let j=0;j<=NZ;j++){const xu=i/NX,u=j/NZ;P2.push(...pt(xu,u,top));const c=pal[Math.min(NC-1,Math.floor(xu*NC))];const seam=Math.abs(((xu*NC)%1)-.5)>.46?.82:1,k=(top?1:.8)*seam;C2.push(c.r*k,c.g*k,c.b*k)}
       for(let i=0;i<NX;i++)for(let j=0;j<NZ;j++){const a=o+i*(NZ+1)+j,b=a+1,c=a+NZ+1,d=c+1;if(top)I2.push(a,c,b,b,c,d);else I2.push(a,b,c,b,d,c)}}
-    for(let ci=0;ci<=NC;ci++){const xu=ci/NC,o=P2.length/3;for(let j=0;j<=NZ;j++){P2.push(...pt(xu,j/NZ,1),...pt(xu,j/NZ,0));C2.push(.82,.82,.84,.82,.82,.84)}for(let j=0;j<NZ;j++){const a=o+j*2;I2.push(a,a+1,a+2,a+1,a+3,a+2)}}
+    // nervuras entre as células
+    for(let ci=0;ci<=NC;ci++){const xu=ci/NC,o=P2.length/3;for(let j=0;j<=NZ;j++){P2.push(...pt(xu,j/NZ,1),...pt(xu,j/NZ,0));C2.push(.86,.86,.88,.86,.86,.88)}for(let j=0;j<NZ;j++){const a=o+j*2;I2.push(a,a+1,a+2,a+1,a+3,a+2)}}
+    // bocas das células (bordo de ataque aberto, interior escuro)
+    for(let ci=0;ci<NC;ci++){const o=P2.length/3;for(let k=0;k<=6;k++){const xu=(ci+.04+k/6*.92)/NC;const a=pt(xu,0,1),b=pt(xu,0,0),a2=pt(xu,.07,1),b2=pt(xu,.07,0);const cc=pal[ci];P2.push(a[0],lerp(a[1],b[1],.5),a[2]-.015,b[0],lerp(b[1],a[1],.1),b[2]-.015);C2.push(cc.r*.2,cc.g*.2,cc.b*.22,cc.r*.2,cc.g*.2,cc.b*.22)}
+      for(let k=0;k<6;k++){const a=o+k*2;I2.push(a,a+2,a+1,a+1,a+2,a+3)}}
+    // estabilizadores nas pontas
+    for(const xu of[0,1]){const o=P2.length/3;const a=pt(xu,.14,0),b=pt(xu,.8,0),m=pt(xu,.45,0),c=pal[xu?NC-1:0];P2.push(...a,...b,m[0]*1.02,m[1]-.58,m[2]);for(let k=0;k<3;k++)C2.push(c.r*.9,c.g*.9,c.b*.9);I2.push(o,o+1,o+2)}
     const cgeo=new THREE.BufferGeometry();cgeo.setAttribute('position',new THREE.Float32BufferAttribute(P2,3));cgeo.setAttribute('color',new THREE.Float32BufferAttribute(C2,3));cgeo.setIndex(I2);cgeo.computeVertexNormals();
-    const canopy=mk(cgeo,new THREE.MeshPhysicalMaterial({vertexColors:true,roughness:.5,sheen:1,sheenColor:new THREE.Color(.7,.7,.7),side:THREE.DoubleSide}),chute);canopy.name='canopy';
-    const lp=[];const riser=(x,z)=>[x<0?-.24:.24,-3.95,z];
-    for(let ci=0;ci<=NC;ci++)for(const u of[.14,.62]){const a=pt(ci/NC,u,0);const r2=riser(a[0],u<.5?.08:-.08);lp.push(...a,...r2)}
-    for(const ci of[0,9]){const a=pt(ci/NC,1,0);lp.push(...a,ci<5?-.42:.42,-3.25,-.05)}
-    const lg=new THREE.BufferGeometry();lg.setAttribute('position',new THREE.Float32BufferAttribute(lp,3));chute.add(new THREE.LineSegments(lg,new THREE.LineBasicMaterial({color:0x3a404a,transparent:true,opacity:.3})));
-    const slider=mk(new THREE.PlaneGeometry(.8,.55).rotateX(-Math.PI/2),new THREE.MeshStandardMaterial({color:0x22262e,roughness:.7,side:THREE.DoubleSide}),chute,false);slider.position.y=-1.2;slider.name='slider';
-    const pc=mk(new THREE.SphereGeometry(.34,16,8,0,Math.PI*2,0,Math.PI/2),new THREE.MeshStandardMaterial({color:acc,roughness:.6,side:THREE.DoubleSide}),chute,false);pc.position.set(0,1.05,-1.9);pc.rotation.x=-.9;
-    const bg=new THREE.BufferGeometry();bg.setAttribute('position',new THREE.Float32BufferAttribute([0,.22,0,0,1.05,-1.9],3));chute.add(new THREE.LineSegments(bg,new THREE.LineBasicMaterial({color:0xe8e8e8})))}
+    const cmat=new THREE.MeshPhysicalMaterial({vertexColors:true,roughness:.62,sheen:.6,sheenRoughness:.5,sheenColor:new THREE.Color(.6,.6,.6),side:THREE.DoubleSide});
+    // o tecido deixa passar luz: o lado de baixo não fica preto
+    cmat.onBeforeCompile=sh=>{Object.assign(sh.uniforms,FOGU);sh.fragmentShader=sh.fragmentShader.replace('#include <emissivemap_fragment>','#include <emissivemap_fragment>\ntotalEmissiveRadiance+=diffuseColor.rgb*uSunCol*(.3+.5*max(uSunDir.y,0.));')};cmat.customProgramCacheKey=()=>'canopy';
+    mk(cgeo,cmat,canopy);
+    // linhas em cascata: 4 fileiras (A,B → tirante dianteiro; C,D → tirante traseiro)
+    const lp=[],RY=-3.2,rz=[.035,.035,-.035,-.035],rows=[.07,.3,.56,.82];
+    rows.forEach((u,ri)=>{for(const sd of[-1,1]){const rs=[sd*.2,RY,rz[ri]];const ribs=sd<0?[0,1,2,3,4]:[9,8,7,6,5];for(const grp of[[ribs[0],ribs[1]],[ribs[2],ribs[3]],[ribs[4]]]){const at=grp.map(ci=>pt(ci/NC,u,0));const mx=at.reduce((s2,a)=>s2+a[0],0)/at.length,my=at.reduce((s2,a)=>s2+a[1],0)/at.length,mz=at.reduce((s2,a)=>s2+a[2],0)/at.length;
+        const cx=lerp(rs[0],mx,.56),cy=lerp(rs[1],my,.56),cz=lerp(rs[2],mz,.56);lp.push(rs[0],rs[1],rs[2],cx,cy,cz);for(const a of at)lp.push(cx,cy,cz,a[0],a[1],a[2])}}});
+    for(const sd of[-1,1]){const ribs=sd<0?[0,1.5,3]:[9,7.5,6];const j=[sd*1.25,-1.15,-CH*.5];lp.push(sd*.22,RY+.2,-.08,...j);for(const ci of ribs){const a=pt(ci/NC,1,0);lp.push(...j,...a)}}
+    const lg=new THREE.BufferGeometry();lg.setAttribute('position',new THREE.Float32BufferAttribute(lp,3));clines=new THREE.LineSegments(lg,new THREE.LineBasicMaterial({color:0x2e333c,transparent:true,opacity:.42}));canopy.add(clines);
+    // tirantes, slider e pilotinho recolhido
+    slider=new THREE.Object3D();rig.add(slider);
+  }
   chute.visible=false;
   const bflame=new THREE.Mesh(RG.bflame,M_FLAME);bflame.position.set(0,1.1,-.5);root.add(bflame);
   const shield=new THREE.Mesh(RG.shield,M_SHIELD);shield.position.y=1;root.add(shield);
@@ -180,7 +193,7 @@ function makeRider(color,name,pal){
   const badgeParts=[bk,bkI,hb,cb];badgeParts.forEach(o=>o.visible=false);
   const tag=nameTag(name,color);tag.position.y=2.9;root.add(tag);
   root.scale.setScalar(1.5);
-  return{root,bank,spin,pelvis,spine,neck,armL,armR,foreL,foreR,legL,legR,shinL,shinR,fins:[finL,finR],vpole,skate,chute,boat,oarL,oarR,surf,faceM,gog,skin,ski,polesL,polesR,board,bike,wF,wR,crank,wings,jets,bflame,shield,stars,tag,badgeM,badgeParts,
+  return{root,bank,spin,pelvis,spine,neck,armL,armR,foreL,foreR,legL,legR,shinL,shinR,fins:[finL,finR],vpole,skate,chute,canopy,rig,clines,slider,boat,oarL,oarR,surf,faceM,gog,skin,ski,polesL,polesR,board,bike,wF,wR,crank,wings,jets,bflame,shield,stars,tag,badgeM,badgeParts,
     bodyMat,helmMat,paintMat,wingMat,skiMat,mats:[bodyMat,helmMat,paintMat,wingMat,skiMat,badgeM,ringM,faceM]};
 }
 function wingGeo(){
@@ -223,8 +236,12 @@ function poseRider(r,t,standing){
     else{const c=r.pedal*1.25;crouch(.12);Sp.rotation.x=.28;m.legL.rotation.x=Math.sin(c)*.95-.1;m.legR.rotation.x=-Math.sin(c)*.95-.1;m.shinL.rotation.x=.4+Math.max(0,-Math.sin(c))*1.3;m.shinR.rotation.x=.4+Math.max(0,Math.sin(c))*1.3;m.armL.rotation.x=m.armR.rotation.x=-.95;m.foreL.rotation.x=m.foreR.rotation.x=-.7;m.armL.rotation.z=-.15;m.armR.rotation.z=.15}}
   else if(mod==='skate'){const lv=clamp(r.latV||0,-3,3);P.rotation.y=.95;crouch(.98);P.position.y+=.11;m.legL.rotation.z=.12;m.legR.rotation.z=-.12;Sp.rotation.x=.78;Sp.rotation.y=-.38;Sp.rotation.z=lv*.04;m.neck.rotation.x=-.85;m.neck.rotation.y=-.62;
     m.armL.rotation.x=m.armR.rotation.x=.75;m.armL.rotation.z=.1;m.armR.rotation.z=-.1;m.foreL.rotation.x=m.foreR.rotation.x=-.25}
-  else if(mod==='paraquedas'){if(r.chuteOpen&&(r.collapse||0)>.05){crouch(.12);m.armL.rotation.z=.35;m.armR.rotation.z=-.35}
-    else if(r.chuteOpen){const fl=r.flare||0;crouch(.04);m.armL.rotation.x=m.armR.rotation.x=lerp(-2.75,-.45,fl)+(r.latV>0?.2:-.2)*0;m.armL.rotation.z=.18;m.armR.rotation.z=-.18;m.foreL.rotation.x=m.foreR.rotation.x=-.2;m.legL.rotation.x=-.35+Math.sin(t*1.3+r.phase)*.12;m.legR.rotation.x=-.25-Math.sin(t*1.3+r.phase)*.12}
+  else if(mod==='paraquedas'){
+    if(r.grounded){const c=(r.stroke||0)*1.35,sw=Math.sin(c);P.position.y=.93+Math.abs(Math.cos(c))*.05;Sp.rotation.x=.2;m.neck.rotation.x=-.1;m.legL.rotation.x=-sw*.8;m.legR.rotation.x=sw*.8;m.shinL.rotation.x=.25+Math.max(0,sw)*1.25;m.shinR.rotation.x=.25+Math.max(0,-sw)*1.25;
+      m.armL.rotation.x=sw*.85;m.armR.rotation.x=-sw*.85;m.foreL.rotation.x=m.foreR.rotation.x=-1.3;m.armL.rotation.z=.14;m.armR.rotation.z=-.14}
+    else if(r.chuteOpen){const fl=r.flare||0,sw=Math.sin(t*1.3+r.phase)*.06;P.position.y=.96;Sp.rotation.x=-.06;m.neck.rotation.x=.12-fl*.2;
+      m.legL.rotation.x=lerp(-.55,-.2,fl)+sw;m.legR.rotation.x=lerp(-.48,-.2,fl)-sw;m.shinL.rotation.x=lerp(.75,.3,fl);m.shinR.rotation.x=lerp(.68,.3,fl);m.legL.rotation.z=.07;m.legR.rotation.z=-.07;
+      const st=clamp((r.latV||0)*.12,-.35,.35);m.armL.rotation.x=lerp(-2.25,-.35,fl)+Math.max(0,st)*1.1;m.armR.rotation.x=lerp(-2.25,-.35,fl)+Math.max(0,-st)*1.1;m.armL.rotation.z=lerp(.42,.3,fl);m.armR.rotation.z=-lerp(.42,.3,fl);m.foreL.rotation.x=m.foreR.rotation.x=lerp(-.75,-.25,fl)}
     else{P.position.set(0,1,0);P.rotation.x=Math.PI/2*.94;Sp.rotation.x=-.18;m.armL.rotation.z=1.38;m.armR.rotation.z=-1.38;m.armL.rotation.x=m.armR.rotation.x=-.4;m.foreL.rotation.x=m.foreR.rotation.x=-1.45;m.legL.rotation.z=.3;m.legR.rotation.z=-.3;m.legL.rotation.x=m.legR.rotation.x=.15;m.shinL.rotation.x=m.shinR.rotation.x=1.25;m.neck.rotation.x=-1.25;const f=Math.sin(t*9+r.phase)*.04;m.armL.rotation.z+=f;m.armR.rotation.z-=f}}
   else if(mod==='remo'){const ph=((r.stroke||0)/(2*Math.PI))%1,dr=ph<.42?ph/.42:1-(ph-.42)/.58,dk=smooth(0,1,dr);P.position.set(0,.33,lerp(-.38,.28,dk));P.rotation.y=Math.PI;
     m.legL.rotation.x=m.legR.rotation.x=lerp(-2.3,-1.52,dk);m.shinL.rotation.x=m.shinR.rotation.x=lerp(2.25,.15,dk);m.legL.rotation.z=.06;m.legR.rotation.z=-.06;

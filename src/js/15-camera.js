@@ -18,7 +18,7 @@ function updateCamera(dt,t){
     const f=spot||G.rank.find(r=>!r.finished)||G.rank[0];if(!f)return;
     if(f!==CAM.focus){CAM.focus=f}
     CAM.shotT-=dt;if(CAM.shotT<=0){CAM.shot=spot?'chase':pick(SHOTS);CAM.shotT=rand(6,10)}
-    trackAt(f.s,CTA);const air=CTA.surface==='air',fp=f.root.position;const shot=spot?'chase':CAM.shot;
+    trackAt(f.s,CTA);const pqLand=CTA.mod==='paraquedas'&&CTA.lu>=W.bounds[CTA.seg].td;const air=CTA.surface==='air'&&!pqLand,fp=f.root.position;const shot=spot?'chase':CAM.shot;
     const sfc=CTA.surface;
     if(sfc==='rock'){_v.set(CTA.tan.x,0,CTA.tan.z).normalize();_dp.copy(fp).addScaledVector(_v,-11.5).addScaledVector(CTA.side,Math.sin(t*.3)*4.5);_dp.y=fp.y+1.2;_dl.copy(fp);_dl.y+=3.4;k=2.4}
     else if(sfc==='water'&&!((f.wade||0)>.5)){if(shot==='front'){_dp.copy(fp).addScaledVector(CTA.tan,8);_dp.y=fp.y+2.1;_dl.copy(fp).addScaledVector(CTA.tan,-4);_dl.y+=1.5;k=2.6}
@@ -27,7 +27,7 @@ function updateCamera(dt,t){
     else if(shot==='low'){_dp.copy(fp).addScaledVector(CTA.tan,-7.5).addScaledVector(CTA.side,4.2);_dp.y=fp.y+1.1;_dl.copy(fp).addScaledVector(CTA.tan,10);_dl.y+=1.8;k=3.4}
     else if(shot==='drone'){_dp.copy(fp).addScaledVector(CTA.tan,-18).addScaledVector(CTA.side,10);_dp.y=fp.y+16;_dl.copy(fp).addScaledVector(CTA.tan,6);k=1.8}
     else if(shot==='side'){_dp.copy(fp).addScaledVector(CTA.side,12).addScaledVector(CTA.tan,2);_dp.y=fp.y+2.6;_dl.copy(fp).addScaledVector(CTA.tan,4);_dl.y+=1.2;k=2.8}
-    else{const pq=CTA.mod==='paraquedas',open=pq&&CTA.lu>.4;const back=open?15:air?14:10.5,h=open?2.2:air?4.2:4.4;_dp.copy(fp).addScaledVector(CTA.tan,-back);_dp.y=fp.y+h+Math.max(0,-CTA.tan.y)*back*.3;_dp.addScaledVector(CTA.side,Math.sin(t*.21)*4);_dl.copy(fp).addScaledVector(CTA.tan,9);_dl.y+=open?5.5:1.6;k=3.2;
+    else{const pq=CTA.mod==='paraquedas',open=pq&&CTA.lu>.4&&!pqLand;const back=open?13.5:air?14:10.5,h=open?3.6:air?4.2:4.4;_dp.copy(fp).addScaledVector(CTA.tan,-back);_dp.y=fp.y+h+Math.max(0,-CTA.tan.y)*back*.3;_dp.addScaledVector(CTA.side,Math.sin(t*.21)*4);_dl.copy(fp).addScaledVector(CTA.tan,9);_dl.y+=open?3.6:1.6;k=3.2;
       rollT=air?clamp(f.m.bank.rotation.z*.35,-.25,.25):0}
     const spd=clamp(f.v/40,0,1.2);CAM.shake=Math.max(CAM.shake,spd*.06);
     }
@@ -38,6 +38,6 @@ function updateCamera(dt,t){
   if(CAM.shake>0){CAM.shake=Math.max(0,CAM.shake-dt*.8);camera.position.x+=(Math.sin(t*37)+Math.sin(t*61))*CAM.shake*.3;camera.position.y+=(Math.sin(t*43)+Math.sin(t*71))*CAM.shake*.3}
   camera.lookAt(CAM.look);CAM.roll=lerp(CAM.roll,rollT,1-Math.exp(-dt*2));camera.rotateZ(CAM.roll);
   const boost=G.state==='race'&&CAM.focus&&CAM.focus.fx.boost>0;const fovT=boost?72:(G.state==='race'?62:55);camera.fov=lerp(camera.fov,fovT,1-Math.exp(-dt*3));camera.updateProjectionMatrix();
-  if(post.grade)post.grade.uniforms.uBoost.value=lerp(post.grade.uniforms.uBoost.value,boost?1:(G.state==='race'&&CAM.focus&&MODS[CAM.focus.mod||'bike'].surface==='air'?.35:0),1-Math.exp(-dt*4));
+  if(post.grade)post.grade.uniforms.uBoost.value=lerp(post.grade.uniforms.uBoost.value,boost?1:(G.state==='race'&&CAM.focus&&MODS[CAM.focus.mod||'bike'].surface==='air'&&!CAM.focus.chuteOpen?.1:0),1-Math.exp(-dt*4));
 }
 

@@ -42,7 +42,7 @@ $('btnPad').onclick=()=>$('pad').classList.toggle('show');
 function updatePad(){const r=racers.get(ME);$('btnJoin').textContent=r||pending.has(ME)?'SAIR':'ENTRAR';
   document.querySelectorAll('#padCmds button').forEach(b=>{const c=b.dataset.cmd;const can=r&&G.state==='race'&&!r.finished;const left=r?Math.max(0,(r.cd[c]||0)-G.clock):0;b.disabled=!can||left>0;b.style.setProperty('--cd',r&&left>0?(left/COOL[c]).toFixed(3):0)});
   const fot=`Fotos de perfil: ${AVSTAT.ok} carregadas${AVSTAT.html?` · ${AVSTAT.html} só no placar`:''}${AVSTAT.fail?` · ${AVSTAT.fail} sem foto`:''}.`;
-  $('padNote').textContent=G.twitch==='ok'?`Conectado ao chat de #${CFG.channel}. ${fot}`:G.twitch==='blocked'?'Este visualizador não permite conexão com a Twitch. Teste aqui com os botões; no OBS o chat conecta sozinho.':'Conectando ao chat da Twitch…'}
+  const pf=perf.fps?` Imagem: ${Math.round(DR*100)}% da resolução, ${Math.round(perf.fps)} fps.`:'';$('padNote').textContent=G.twitch==='ok'?`Conectado ao chat de #${CFG.channel}. ${fot}${pf}`:G.twitch==='blocked'?'Este visualizador não permite conexão com a Twitch. Teste aqui com os botões; no OBS o chat conecta sozinho.':'Conectando ao chat da Twitch…'}
 addEventListener('keydown',e=>{if(e.target.tagName==='INPUT'||e.target.tagName==='SELECT')return;if(e.key==='c'||e.key==='C')$('pad').classList.toggle('show');const n=+e.key;if(n>=1&&n<=9)handleChat(ME,myName(),null,'!'+PAD_CMDS[n-1][0])});
 
 // ---- câmera do espectador: scroll troca de piloto, arrastar gira, Shift+scroll aproxima, duplo clique volta ao automático

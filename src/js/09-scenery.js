@@ -131,7 +131,7 @@ function scatter(rng){
     const lat=(15+Math.pow(rng(),1.7)*440)*side;
     const x=s.p.x+s.sd.x*lat+s.t.x*(rng()-.5)*30,z=s.p.z+s.sd.z*lat+s.t.z*(rng()-.5)*30;
     if(Math.abs(x)>1280||Math.abs(z)>1280)continue;
-    const h=gridH(x,z);nearest(x,z);const ss=W.S[_ni],d=_nd;if(d<(ss.surface==='air'?30:ss.surface==='pista'?30:ss.surface==='asfalto'?13:ss.surface==='rio'?32:14))continue;if(d<48&&(ss.s<START_S+70||ss.s>W.FIN-70))continue;if((ss.surface==='water'||ss.surface==='rock'||ss.surface==='mar')&&d<75)continue;if(W.water&&h<W.water.level+1.2)continue;
+    const h=gridH(x,z);nearest(x,z);const ss=W.S[_ni],d=_nd;if(d<(ss.surface==='air'?30:ss.surface==='pista'?30:ss.surface==='asfalto'?13:ss.surface==='rio'?32:14))continue;if(W.landS!=null&&ss.mod==='paraquedas'&&Math.abs(ss.s-W.landS)<80&&d<64)continue;if(d<48&&(ss.s<START_S+70||ss.s>W.FIN-70))continue;if((ss.surface==='water'||ss.surface==='rock'||ss.surface==='mar')&&d<75)continue;if(W.water&&h<W.water.level+1.2)continue;
     const h2=gridH(x+2,z),h3=gridH(x,z+2),slope=Math.hypot(h2-h,h3-h)/2;
     const sf=ss.surface,r=rng(),hw=h-ss.ground;
     if(sf==='air'){if(r<.35&&slope<.9)R.push([x,h,z,'canyon']);else if(r<.75&&slope<.55)SH.push([x,h,z]);continue}
@@ -254,7 +254,7 @@ vCC=aPart<.5?mix(vec3(.03,.04,.07),aShirt*.3,.4):(aPart<1.5||(aPart>3.5&&aPart<5
 function makeCrowd(rng){
   const S=W.S,spots=[W.FIN-30,W.FIN+6,START_S+15,...W.bounds.slice(1).map(b=>b.a*W.L-25),...W.bounds.filter(b=>b.mod==='vara'||b.mod==='skate'||b.mod==='remo').map(b=>(b.a+b.b)/2*W.L),...(W.landS?[W.landS]:[])];
   const list=[],fences=[],flagsL=[];
-  spots.forEach(s0=>{for(let k=0;k<70;k++){const s=s0+rand(-26,26),i=clamp(Math.round(s/DS),0,S.length-1),p=S[i];if(!isG(p.surface)&&!(p.surface==='water'&&p.lu>.96)&&p.surface!=='rio'&&!(p.mod==='paraquedas'&&p.lu>.9))continue;const side=rng()<.5?-1:1,lat=side*(p.surface==='rio'?rand(21,29):p.mod==='paraquedas'?rand(18,26):p.surface==='asfalto'?rand(9,12):rand(12.6,19.5));
+  spots.forEach(s0=>{for(let k=0;k<70;k++){const s=s0+rand(-26,26),i=clamp(Math.round(s/DS),0,S.length-1),p=S[i];if(!isG(p.surface)&&!(p.surface==='water'&&p.lu>.96)&&p.surface!=='rio'&&!(p.mod==='paraquedas'&&p.lu>(W.bounds[p.seg].td||.9)-.07))continue;const side=rng()<.5?-1:1,lat=side*(p.surface==='rio'?rand(21,29):p.mod==='paraquedas'?rand(18,26):p.surface==='asfalto'?rand(9,12):rand(12.6,19.5));
       const x=p.p.x+p.sd.x*lat,z=p.p.z+p.sd.z*lat,y=gridH(x,z);if(W.water&&y<W.water.level+.3)continue;if(Math.abs(y-p.ground)>4)continue;list.push({x,z,y,ang:Math.atan2(-p.sd.x*side,-p.sd.z*side)})}
     for(let f=-24;f<=24;f+=3.3){const i=clamp(Math.round((s0+f)/DS),0,S.length-1),p=S[i];if(!isG(p.surface)||p.surface==='asfalto')continue;const fw=p.surface==='pista'?14.5:11.6;for(const side of[-1,1]){const x=p.p.x+p.sd.x*fw*side,z=p.p.z+p.sd.z*fw*side,y=gridH(x,z);if(Math.abs(y-p.ground)>3)continue;fences.push({x,y,z,ang:Math.atan2(p.t.x,p.t.z)});if(rng()<.18)flagsL.push({x:p.p.x+p.sd.x*20*side,y:gridH(p.p.x+p.sd.x*20*side,p.p.z+p.sd.z*20*side),z:p.p.z+p.sd.z*20*side,ang:Math.atan2(p.t.x,p.t.z)})}}});
   const mt=new THREE.Matrix4(),q=new THREE.Quaternion(),sc=new V3(1.5,1.5,1.5),pp=new V3();

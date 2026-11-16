@@ -39,7 +39,7 @@ function frame(){
   sky.position.copy(camera.position);
   const ts=sun.shadow.camera.right*2/QL.shadow;_sunP.copy(CAM.look);_sunP.x=Math.round(_sunP.x/ts)*ts;_sunP.z=Math.round(_sunP.z/ts)*ts;
   sun.target.position.copy(_sunP);sun.position.copy(_sunP).addScaledVector(SUN_DIR,450);
-  const fogMul=G.fogT>0?5:1;FOGU.uFogP.value.x=lerp(FOGU.uFogP.value.x,SKY.fog[0]*fogMul,1-Math.exp(-dt*1.2));FOGU.uFogP.value.w=lerp(FOGU.uFogP.value.w,SKY.fog[2]*(G.fogT>0?8:1),1-Math.exp(-dt*1.2));
+  const fogMul=G.fogT>0?2.2:1;FOGU.uFogP.value.x=lerp(FOGU.uFogP.value.x,SKY.fog[0]*fogMul,1-Math.exp(-dt*1.2));FOGU.uFogP.value.w=lerp(FOGU.uFogP.value.w,SKY.fog[2]*(G.fogT>0?2.6:1),1-Math.exp(-dt*1.2));
   const light=new THREE.Color().copy(FOGU.uSunCol.value).multiplyScalar(SKY.sunI*.32).add(FOGU.uSkyHor.value.clone().multiplyScalar(.55));PUFF.mat.uniforms.uLight.value.copy(light);BUB.mat.uniforms.uLight.value.setRGB(.7,1.,1.15);
   if(grass){_tmp.set(0,0,-1).applyQuaternion(camera.quaternion);_tmp.y=0;_tmp.normalize();GRASSU.uCenter.value.set(camera.position.x+_tmp.x*40,camera.position.z+_tmp.z*40);grass.visible=camera.position.y-gridH(camera.position.x,camera.position.z)<80;if(cover)cover.visible=FOGU.uUnder.value.w>0}
   trackAt(CAM.focus&&G.state==='race'?CAM.focus.s:START_S,CTA);
@@ -59,6 +59,6 @@ function frame(){
   if(post.on){renderer.setRenderTarget(post.sceneRT);renderer.render(scene,camera);renderer.setRenderTarget(null);post.composer.render(rdt)}else renderer.render(scene,camera);
   // adaptive resolution
   perf.acc+=rdt;perf.frames++;if(perf.acc>2){const fps=perf.frames/perf.acc;perf.acc=0;perf.frames=0;
-    if(fps<42&&DR>.55){DR=Math.max(.55,DR*.86);resize()}else if(fps>57&&DR<1){DR=Math.min(1,DR*1.07);resize()}}
+    perf.fps=fps;const dmin=QL.drMin||.55;if(fps<42&&DR>dmin){DR=Math.max(dmin,DR*.9);resize()}else if(fps>57&&DR<1){DR=Math.min(1,DR*1.07);resize()}}
 }
 
