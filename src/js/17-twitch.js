@@ -2,7 +2,7 @@
 // TWITCH
 // ======================================================================
 let ws=null,wsTry=0,wsTimer=0;
-const TWITCH_CLIENT_ID='4il6dxcx7uq3izlncxu19b645ueyi6';
+const TWITCH_CLIENT_ID='gak9zpsfc5uef6csu3d2uo7mooaalq';
 const TWITCH_OAUTH_STATE_KEY='rr.twitch.oauth.state';
 const TWITCH_TOKEN_KEY='rr.twitch.oauth.token';
 const TWITCH_LOGIN_KEY='rr.twitch.oauth.login';
