@@ -21,7 +21,7 @@ function updateCamera(dt,t){
     trackAt(f.s,CTA);const air=CTA.surface==='air',fp=f.root.position;const shot=spot?'chase':CAM.shot;
     const sfc=CTA.surface;
     if(sfc==='rock'){_v.set(CTA.tan.x,0,CTA.tan.z).normalize();_dp.copy(fp).addScaledVector(_v,-11.5).addScaledVector(CTA.side,Math.sin(t*.3)*4.5);_dp.y=fp.y+1.2;_dl.copy(fp);_dl.y+=3.4;k=2.4}
-    else if(sfc==='water'){if(shot==='front'){_dp.copy(fp).addScaledVector(CTA.tan,8);_dp.y=fp.y+2.1;_dl.copy(fp).addScaledVector(CTA.tan,-4);_dl.y+=1.5;k=2.6}
+    else if(sfc==='water'&&!((f.wade||0)>.5)){if(shot==='front'){_dp.copy(fp).addScaledVector(CTA.tan,8);_dp.y=fp.y+2.1;_dl.copy(fp).addScaledVector(CTA.tan,-4);_dl.y+=1.5;k=2.6}
       else{_dp.copy(fp).addScaledVector(CTA.tan,-9.5).addScaledVector(CTA.side,Math.sin(t*.4)*1.1);_dp.y=fp.y+2.3;_dl.copy(fp).addScaledVector(CTA.tan,8);_dl.y+=1.4;k=3}}
     else if(shot==='front'){_dp.copy(fp).addScaledVector(CTA.tan,13);_dp.y=fp.y+(air?3:2.6);_dp.addScaledVector(CTA.side,3.5);_dl.copy(fp).addScaledVector(CTA.tan,-6);_dl.y+=1.4;k=2.6}
     else if(shot==='low'){_dp.copy(fp).addScaledVector(CTA.tan,-7.5).addScaledVector(CTA.side,4.2);_dp.y=fp.y+1.1;_dl.copy(fp).addScaledVector(CTA.tan,10);_dl.y+=1.8;k=3.4}

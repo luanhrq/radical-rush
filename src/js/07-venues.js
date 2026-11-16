@@ -7,8 +7,8 @@ function buildVara(i0,i1){const S=W.S;const std=new THREE.MeshStandardMaterial({
     const mat=new THREE.Mesh(new RoundedBoxGeometry(13,1.2,7.4,3,.4),matM);mat.position.set(0,.6,4.8);mat.castShadow=mat.receiveShadow=true;g.add(mat);
     const box=new THREE.Mesh(new THREE.BoxGeometry(1.3,.06,1.8),new THREE.MeshStandardMaterial({color:0x1a1a1a,roughness:.5,metalness:.6}));box.position.set(0,.03,-2.3);g.add(box);
     W.group.add(g);W.bars.push({s:s.s,bar,fall:0})}}
-function strawTex(){return cTex(256,256,(x,w,h)=>{x.fillStyle='#c9a24e';x.fillRect(0,0,w,h);const R2=mulberry(11);for(let k=0;k<2600;k++){const v=R2();x.strokeStyle=v<.5?`rgba(120,86,30,${.25+R2()*.35})`:`rgba(250,226,150,${.2+R2()*.4})`;x.lineWidth=.6+R2()*1.4;const y0=R2()*h,x0=R2()*w;x.beginPath();x.moveTo(x0,y0);x.lineTo(x0+12+R2()*30,y0+(R2()-.5)*5);x.stroke()}
-  x.strokeStyle='rgba(60,40,15,.55)';x.lineWidth=5;[.3,.7].forEach(f=>{x.beginPath();x.moveTo(0,h*f);x.lineTo(w,h*f);x.stroke()})})}
+function strawTex(){return cTex(256,256,(x,w,h)=>{x.fillStyle='#d9b862';x.fillRect(0,0,w,h);const R2=mulberry(11);for(let k=0;k<2600;k++){const v=R2();x.strokeStyle=v<.5?`rgba(120,86,30,${.25+R2()*.35})`:`rgba(250,226,150,${.2+R2()*.4})`;x.lineWidth=.6+R2()*1.4;const y0=R2()*h,x0=R2()*w;x.beginPath();x.moveTo(x0,y0);x.lineTo(x0+12+R2()*30,y0+(R2()-.5)*5);x.stroke()}
+  x.strokeStyle='rgba(90,64,24,.35)';x.lineWidth=2;[.3,.7].forEach(f=>{x.beginPath();x.moveTo(0,h*f);x.lineTo(w,h*f);x.stroke()})})}
 function chevronTex(){return cTex(512,256,(x,w,h)=>{x.fillStyle='#ffd400';x.fillRect(0,0,w,h);x.fillStyle='#111';for(let k=0;k<3;k++){const ox=60+k*150;x.beginPath();x.moveTo(ox,30);x.lineTo(ox+70,30);x.lineTo(ox+150,128);x.lineTo(ox+70,226);x.lineTo(ox,226);x.lineTo(ox+80,128);x.closePath();x.fill()}x.strokeStyle='#111';x.lineWidth=10;x.strokeRect(5,5,w-10,h-10)})}
 function buildRoad(i0,i1){const S=W.S;const mt=new THREE.Matrix4(),q=new THREE.Quaternion(),e=new THREE.Euler(),sc=new V3(1,1,1),pp=new V3();
   const upS=i=>(S[i].seg%2?1:-1);

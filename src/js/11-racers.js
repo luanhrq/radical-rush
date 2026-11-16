@@ -120,10 +120,14 @@ function updateRacer(r,dt,t){
   if(air&&!standing){const env=smooth(.03,.15,TA.lu)*(1-smooth(.8,1,TA.lu));P.y+=Math.sin(t*1.1+r.phase)*1.6*env-.22+env*.6}
   const climb=TA.mod==='escalada',swim=TA.mod==='nado';
   if(climb){_v.set(TA.tan.x,0,TA.tan.z).normalize();P.addScaledVector(_v,-.62);P.y=TA.pos.y-.3+jump;_look.copy(P).add(_v);if(e.stun>0)r.s=Math.max(r.s-dt*5,W.bounds[TA.seg].a*W.L+2)}
-  else if(swim){const under=W.water&&TA.pos.y<W.water.level-1;P.y=TA.pos.y-(under?1.5:2.3)+Math.sin(t*1.6+r.phase)*.22;_look.copy(P).add(TA.tan)}
-  else if(TA.mod==='remo'){P.y=TA.pos.y-.02+Math.sin(t*2+r.phase)*.04;_look.copy(P).add(TA.tan);const ph=((r.stroke||0)/(2*Math.PI))%1;if(ph<r.lastPh&&G.state==='race'&&camera.position.distanceToSquared(P)<140*140){for(const o of[r.m.oarL,r.m.oarR]){const bl=o.children[1];if(bl){bl.getWorldPosition(_v);puddle(_v.x,TA.pos.y,_v.z)}}}r.lastPh=ph}
+  else if(swim){const under=W.water&&TA.pos.y<W.water.level-1;const lv=W.water?W.water.level:TA.pos.y;r.wade=W.water&&W.water.last&&TA.last?smooth(lv-1.2,lv-.25,TA.ground):0;
+    P.y=lerp(TA.pos.y-(under?1.5:2.3)+Math.sin(t*1.6+r.phase)*.22,TA.ground+.04,r.wade);_look.copy(P).add(TA.tan);_look.y=P.y;r.m.fins.forEach(f=>f.visible=r.wade<.5);
+    if(r.wade>.05&&r.wade<.95&&r.v>3&&Math.random()<dt*14)PUFF.emit(P.x+rand(-.4,.4),lv+.1,P.z+rand(-.4,.4),rand(-1,1),rand(1.5,3.5),rand(-1,1),1,1.05,1.1,rand(.4,.8),.5,6,.6,1.2)}
+  else r.wade=0;
+  if(!swim&&!climb){
+  if(TA.mod==='remo'){P.y=TA.pos.y-.02+Math.sin(t*2+r.phase)*.04;_look.copy(P).add(TA.tan);const ph=((r.stroke||0)/(2*Math.PI))%1;if(ph<r.lastPh&&G.state==='race'&&camera.position.distanceToSquared(P)<140*140){for(const o of[r.m.oarL,r.m.oarR]){const bl=o.children[1];if(bl){bl.getWorldPosition(_v);puddle(_v.x,TA.pos.y,_v.z)}}}r.lastPh=ph}
   else if(TA.mod==='windsurf'){const lv=W.water?W.water.level:TA.pos.y,tt=FOGU.uTime.value;P.y=lv+waveH(P.x,P.z,tt)+.06+jump;_look.copy(P).addScaledVector(TA.tan,1.2);_look.y=lv+waveH(_look.x,_look.z,tt)+.06+jump}
-  else _look.copy(P).add(TA.tan);
+  else _look.copy(P).add(TA.tan)}
   r.root.lookAt(_look);
   const bk=climb?0:clamp(-r.latV*(air?.12:.06),-.7,.7);r.m.bank.rotation.z=lerp(r.m.bank.rotation.z,bk,1-Math.exp(-dt*4));
   r.pedal+=dt*(r.v*.45);r.wheel-=r.v*dt/.51;r.climb=(r.climb||0)+dt*r.v*1.15;r.stroke=(r.stroke||0)+dt*(1.6+r.v*.3);
@@ -148,7 +152,7 @@ function updateRacer(r,dt,t){
       else if(M.surface==='water'){const lv=W.water?W.water.level:P.y;if(P.y+1.5<lv-.5){if(Math.random()<.6)BUB.emit(P.x+rand(-.6,.6),P.y+1.8,P.z+rand(-.6,.6),rand(-.3,.3),rand(1.5,3),rand(-.3,.3),1,1,1,rand(.15,.42),2.2,-2.6,.95,.05)}
         else if(Math.random()<.5)PUFF.emit(P.x+rand(-1,1),lv+.1,P.z+rand(-1,1),rand(-1,1),rand(1,2.5),rand(-1,1),1.05,1.1,1.15,rand(.22,.45),.5,6,.5,.8)}
       else if(M.surface==='rio'||M.surface==='mar'){const ph=((r.stroke||0)/(2*Math.PI))%1;if(M.surface==='mar'||ph<.08){for(let q=0;q<(M.surface==='mar'?2:3);q++)PUFF.emit(P.x-TA.tan.x*1.2+rand(-.5,.5)+(M.surface==='rio'?TA.side.x*rand(-3.3,3.3):0),P.y+.12,P.z-TA.tan.z*1.2+rand(-.5,.5)+(M.surface==='rio'?TA.side.z*rand(-3.3,3.3):0),-TA.tan.x*r.v*.08+TA.side.x*rand(-2,2),rand(.6,2.4),-TA.tan.z*r.v*.08+TA.side.z*rand(-2,2),1.05,1.1,1.15,rand(.25,.55),.55,6,.6,1)}}
-      else if(M.surface==='pista'||(M.surface==='asfalto'&&Math.abs(r.latV||0)>1.2)){if(Math.random()<.4)PUFF.emit(P.x+rand(-.3,.3),P.y+.15,P.z+rand(-.3,.3),rand(-.6,.6),rand(.3,1),rand(-.6,.6),.55,.5,.4,rand(.4,.8),.5,.5,.35,1.5)}
+      else if(M.surface==='pista'){if(Math.random()<.4)PUFF.emit(P.x+rand(-.3,.3),P.y+.15,P.z+rand(-.3,.3),rand(-.6,.6),rand(.3,1),rand(-.6,.6),.55,.5,.4,rand(.4,.8),.5,.5,.35,1.5)}
       else if(M.surface==='rock'){if(Math.random()<.25)PUFF.emit(P.x+rand(-.5,.5),P.y+rand(2.2,3.4),P.z+rand(-.5,.5),rand(-.4,.4),rand(-.6,.2),rand(-.4,.4),1.1,1.1,1.1,rand(.25,.55),.9,-.1,.55,.8)}
       else if(!standing){if(r.mod==='rocket'){GLOW.emit(P.x-TA.tan.x*1.5,P.y+1.15,P.z-TA.tan.z*1.5,-TA.tan.x*9,rand(-1,1),-TA.tan.z*9,2.5,1.1,.35,rand(.6,1),.35,0,1);PUFF.emit(P.x-TA.tan.x*2,P.y+1.15,P.z-TA.tan.z*2,0,.4,0,.75,.75,.8,1.3,1.4,0,.3,2.2)}
         else for(const sd of[-1.45,1.45])GLOW.emit(P.x+TA.side.x*sd,P.y+1,P.z+TA.side.z*sd,0,0,0,.6,.65,.75,.35,.8,0,.6,-.1)}

@@ -20,12 +20,12 @@ function terrainH(x,z){
   let h=g+t*(26+rg*210+nz*40)+Math.max(0,d-Wd-90)*.22;
   h+=fbm(W.n1,x*.045,z*.045,3)*1.8*smooth(Wd-3,Wd+8,d);
   if(s.surface==='asfalto'){const e=smooth(0,.05,s.lu)*(1-smooth(.95,1,s.lu)),lat=(x-s.p.x)*s.sd.x+(z-s.p.z)*s.sd.z,up=lat*(s.seg%2?1:-1)>0,dd=Math.max(0,d-7.6);let hs;
-    if(up)hs=s.ground+smooth(0,26,dd)*(16+rg*120+nz*30)+dd*.62+fbm(W.n1,x*.07,z*.07,3)*2.4*smooth(0,5,dd);
+    if(up)hs=s.ground+dd*.42+smooth(8,70,dd)*(8+rg*90+nz*25)+fbm(W.n1,x*.07,z*.07,3)*1.4*smooth(0,5,dd);
     else{const drop=Math.min(48,dd*.85+dd*dd*.004);hs=lerp(s.ground-.25-drop+fbm(W.n1,x*.05,z*.05,3)*2.6*smooth(0,6,dd),g+(26+rg*210+nz*40)*.55,smooth(70,210,d))}
     if(d<7.6)hs=s.ground;h=lerp(h,hs,e)}
   if(s.surface==='rock')h-=9*(1-smooth(12,20,d));
   if(wat){const deep=smooth(.06,.2,s.lu)*(1-smooth(.82,.92,s.lu));h+=(ridged(W.n1,x*.028,z*.028,4)*7+fbm(W.n2,x*.09,z*.09,3)*1.6+Math.max(0,fbm(W.n1,x*.012+3,z*.012,3))*14*smooth(20,45,d))*smooth(7,16,d)*deep}
-  if(W.water&&W.water.last){const E=W.S[W.S.length-1];const hl=Math.hypot(E.t.x,E.t.z)||1;const ah=((x-E.p.x)*E.t.x+(z-E.p.z)*E.t.z)/hl;if(ah>-25)h=lerp(h,W.water.level-28+fbm(W.n1,x*.01,z*.01,2)*6,smooth(-25,170,ah))}
+  if(W.water&&W.water.last){const E=W.S[W.S.length-1];const hl=Math.hypot(E.t.x,E.t.z)||1;const ah=((x-E.p.x)*E.t.x+(z-E.p.z)*E.t.z)/hl;if(ah>18)h=lerp(h,W.water.level-28+fbm(W.n1,x*.01,z*.01,2)*6,smooth(18,190,ah))}
   return h;
 }
 // heightfield grid lookups
@@ -58,7 +58,7 @@ function buildWorld(def,seed){
     else if(B.mod==='remo')off=-4.5*smooth(0,.03,lu)*(1-smooth(.97,1,lu));
     else if(B.mod==='skate'){const e=smooth(0,.12,lu)*(1-smooth(.88,1,lu));px+=Math.sin(i*DS/170*Math.PI*2)*26*e}
     else if(B.mod==='windsurf'){const nx=bounds[si+1]&&bounds[si+1].mod==='nado';off=-16*smooth(0,.06,lu)*(nx?1:(1-smooth(.93,1,lu)))}
-    S.push({p:new V3(px,yy,pz),s:i*DS,seg:si,mod:B.mod,surface:M.surface,lu,ground:yy+off,last:si===bounds.length-1,t:new V3(),sd:new V3()});
+    S.push({p:new V3(px,yy,pz),s:i*DS,seg:si,mod:B.mod,surface:M.surface,lu,ground:yy+off+(B.mod==='nado'&&si===bounds.length-1?smooth(.9,1,lu)*1.8:0),last:si===bounds.length-1,t:new V3(),sd:new V3()});
   }
   bounds.forEach(B=>{if(B.mod!=='paraquedas')return;const i0=Math.max(0,Math.round(B.a*n)),i1=Math.min(n,Math.round(B.b*n));const yEnd=S[i1].p.y;for(let i=i0;i<=i1;i++){const q=S[i];q.ground=lerp(lerp(q.p.y,yEnd,smooth(0,.035,q.lu)),q.p.y,smooth(.9,.995,q.lu))}});
   for(let i=0;i<S.length;i++){const a=S[Math.max(0,i-1)].p,b=S[Math.min(S.length-1,i+1)].p;S[i].t.subVectors(b,a).normalize();S[i].sd.set(-S[i].t.z,0,S[i].t.x).normalize()}
@@ -161,7 +161,7 @@ function buildWorld(def,seed){
   bounds.forEach((B,si)=>{if(si===0)return;const M=MODS[B.mod];makeGate(B.a*W.L+(M.surface==='air'?4:0),'TROCA ➜ '+M.label,M.surface==='air'?'#ff8a00':'#1e7bff',M.surface==='air'?'#ff2e63':'#29e3ff',false,M.surface==='air')});
   const fin=S[Math.round(W.FIN/DS)];
   const strip=new THREE.Mesh(new THREE.PlaneGeometry(21,2.4),new THREE.MeshStandardMaterial({map:cTex(256,32,(x)=>{for(let i=0;i<16;i++)for(let j=0;j<2;j++){x.fillStyle=(i+j)%2?'#111':'#fafafa';x.fillRect(i*16,j*16,16,16)}}),roughness:.7,polygonOffset:true,polygonOffsetFactor:-4,polygonOffsetUnits:-8}));
-  strip.rotation.x=-Math.PI/2;const sg=new THREE.Group();sg.position.set(fin.p.x,fin.ground+.3,fin.p.z);sg.rotation.y=Math.atan2(fin.t.x,fin.t.z);sg.add(strip);group.add(sg);
+  strip.rotation.x=-Math.PI/2;const sg=new THREE.Group();sg.position.set(fin.p.x,fin.ground+.08,fin.p.z);sg.rotation.y=Math.atan2(fin.t.x,fin.t.z);sg.add(strip);group.add(sg);
   // ---- vegetation, rocks, grass, crowd
   scatter(rng);
   makeGrass();
@@ -196,7 +196,9 @@ float mac=texture2D(tSnow,p.xz*.0021).a,mac2=texture2D(tGrass,p.xz*.0067).a,mac3
 float slope=1.-n.y;
 float rk=smoothstep(.27,.47,slope+(rockA-.5)*.35+(mac-.5)*.12);
 vec3 aRX=texture2D(tRockA,p.zy*rs).rgb,aRY=texture2D(tRockA,p.xz*rs).rgb,aRZ=texture2D(tRockA,p.xy*rs).rgb;vec3 rockAlb=aRX*bw.x+aRY*bw.y+aRZ*bw.z;
-{vec2 duv=bw.x>bw.z?p.zy:p.xy;duv=bw.y>max(bw.x,bw.z)?p.xz:duv;rockAlb=mix(rockAlb,texture2D(tRockA,duv*.021+.37).rgb,.42);}
+{vec2 duv=bw.x>bw.z?p.zy:p.xy;duv=bw.y>max(bw.x,bw.z)?p.xz:duv;rockAlb=mix(rockAlb,texture2D(tRockA,duv*.021+.37).rgb,.42*smoothstep(25.,120.,camD)+.12);
+ float nearF=1.-smoothstep(12.,75.,camD);if(nearF>.001){vec3 dn;vec4 dT;if(bw.y>max(bw.x,bw.z)){dT=texture2D(tRock,duv*.37+.13);dn=vec3(dT.x*2.-1.,0.,dT.y*2.-1.);}else if(bw.x>bw.z){dT=texture2D(tRock,duv*.37+.13);dn=vec3(0.,dT.y*2.-1.,dT.x*2.-1.);}else{dT=texture2D(tRock,duv*.37+.13);dn=vec3(dT.x*2.-1.,dT.y*2.-1.,0.);}
+  rockN=normalize(rockN+dn*.55*nearF);rockA=mix(rockA,rockA*.55+dT.a*.45,nearF);vec3 dA=texture2D(tRockA,duv*.37+.13).rgb;rockAlb=mix(rockAlb,rockAlb*.45+dA*.55,nearF*.7);}}
 vec2 rq=mat2(.8,-.6,.6,.8)*p.xz;
 vec3 gA=mix(texture2D(tGrassA,p.xz*.13).rgb,texture2D(tGrassA,rq*.047).rgb,smoothstep(.3,.7,mac2));
 vec3 snA=mix(texture2D(tSnowA,p.xz*.055).rgb,texture2D(tSnowA,rq*.021).rgb,.45);
@@ -266,14 +268,14 @@ diffuseColor.rgb*=alb;diffuseColor.a*=edge;
 vec3 tN=normalize(vec3(0.,1.,0.)+(mix(saT.xyz,rT.xyz,.5)*2.-1.).xzy*vec3(.8,0.,.8)*(1.-rut*.6));
 float tRough=.92-rut*.25;vec3 tE=vec3(0.);`;
     else if(kind==='river')body=`
-float ex=vR.x;vec2 uvA=vec2(ex*37.,vR.y)*.055+vec2(0.,-uTime*.3);vec2 uvB=vec2(ex*37.,vR.y)*.14+vec2(uTime*.03,-uTime*.52);
+float ex=vR.x;vec2 uvA=vec2(ex*37.,vR.y)*.17+vec2(0.,-uTime*.32);vec2 uvB=vec2(ex*37.,vR.y)*.43+vec2(uTime*.04,-uTime*.55);
 vec3 na=texture2D(tWaves,uvA).xyz*2.-1.,nb=texture2D(tWaves,uvB).xyz*2.-1.;
-vec3 tN=normalize(vec3(0.,1.,0.)+vec3(na.x+nb.x*.6,0.,na.y+nb.y*.6)*.3);
+vec3 tN=normalize(vec3(0.,1.,0.)+vec3(na.x+nb.x*.7,0.,na.y+nb.y*.7)*.11);
 float sh=min(ex,1.-ex);float bank=1.-smoothstep(.0,.09,sh);
 diffuseColor.rgb=mix(vec3(.016,.075,.07),vec3(.06,.13,.09),bank);
 float fo=smoothstep(.58,.92,rr_vnoise(vec2(ex*70.,vR.y*.35-uTime*1.4)))*bank*.55+(1.-smoothstep(.0,.012,sh))*.5;
 diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.78,.83,.8),clamp(fo,0.,1.));diffuseColor.a=1.;
-float tRough=mix(.045,.5,clamp(fo,0.,1.));vec3 tE=vec3(0.);`;
+float tRough=mix(.07,.5,clamp(fo,0.,1.));vec3 tE=vec3(0.);`;
     else if(kind==='pista')body=`
 float ex=vR.x;float edge=smoothstep(0.,.025,ex)*smoothstep(1.,.975,ex);
 vec4 saT=texture2D(tSand,vWP.xz*.3);float ln=step(abs(fract(ex*6.+.5)-.5),.014);
@@ -285,7 +287,7 @@ float tRough=mix(.78,.5,ln);vec3 tE=vec3(0.);`;
 float ex=vR.x;float edge=smoothstep(0.,.01,ex)*smoothstep(1.,.99,ex);
 vec4 saT=texture2D(tSand,vWP.xz*.42);vec4 rkT=texture2D(tRock,vWP.xz*.6);
 float n1=rr_vnoise(vWP.xz*.12),n2=rr_vnoise(vWP.xz*2.3),n3=rr_vnoise(vWP.xz*.035);
-vec3 alb=vec3(.078,.08,.086)*(.72+.42*saT.a+.28*n1)+vec3(.1)*smoothstep(.78,.9,n2);
+vec3 alb=vec3(.078,.08,.086)*(.74+.36*saT.a+.24*n1);
 float patchy=smoothstep(.55,.6,rr_vnoise(vec2(floor(vR.y/9.),floor(ex*3.))*.73+vec2(3.1,7.7)));alb*=mix(1.,.72,patchy*.7);
 float tm=smoothstep(.07,.0,abs(ex-.5-.2*sin(vR.y*.019)))*(.45+.55*rr_vnoise(vec2(ex*50.,vR.y*.04)));alb*=1.-.4*tm*smoothstep(.4,.7,n3);
 float wl=step(abs(ex-.055),.007)+step(abs(ex-.945),.007);

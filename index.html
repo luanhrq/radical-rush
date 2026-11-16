@@ -254,7 +254,7 @@ import {GTAOPass} from 'three/addons/postprocessing/GTAOPass.js';
 // ======================================================================
 // CONFIG
 // ======================================================================
-const VERSION='1.9';
+const VERSION='1.9.1';
 const LS={get(k,d){try{const v=localStorage.getItem('rr.'+k);return v==null?d:v}catch(e){return d}},set(k,v){try{localStorage.setItem('rr.'+k,v)}catch(e){}}};
 const Q=new URLSearchParams(location.search);
 const CFG={
@@ -265,7 +265,7 @@ const CFG={
 };
 const QP={
   ultra:{pr:2,shadow:4096,grass:110000,trees:1,seg:440,bloom:1,rays:1,msaa:4,post:1,ao:16,aoHalf:0},
-  high:{pr:1.5,shadow:2048,grass:60000,trees:.85,seg:380,bloom:1,rays:1,msaa:4,post:1,ao:10,aoHalf:1},
+  high:{pr:1.5,shadow:2048,grass:60000,trees:.85,seg:380,bloom:1,rays:1,msaa:4,post:1,ao:0,aoHalf:0},
   medium:{pr:1.15,shadow:2048,grass:26000,trees:.6,seg:300,bloom:1,rays:0,msaa:2,post:1},
   low:{pr:.85,shadow:1024,grass:0,trees:.4,seg:220,bloom:0,rays:0,msaa:0,post:0},
 };
@@ -421,7 +421,7 @@ function setupPost(){
   if(!GTAOPass.prototype._rrFix){const sg=GTAOPass.prototype.setGBuffer;GTAOPass.prototype.setGBuffer=function(d,n){if(d!==undefined&&!this.normalRenderTarget)this.normalRenderTarget={depthTexture:d,setSize(){},dispose(){}};return sg.call(this,d,n)};GTAOPass.prototype._rrFix=1}
   if(QL.ao){try{post.ao=new GTAOPass(scene,camera,innerWidth,innerHeight,{depthTexture:dtex},{radius:2.4,distanceExponent:1.4,thickness:3,scale:1.1,samples:QL.ao,distanceFallOff:1,screenSpaceRadius:false});post.ao.blendIntensity=.9;comp.addPass(post.ao);comp.addPass(new ShaderPass({uniforms:{tDiffuse:{value:null}},vertexShader:`varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,fragmentShader:`uniform sampler2D tDiffuse;varying vec2 vUv;void main(){vec4 c=texture2D(tDiffuse,vUv);if(!(c==c)||!(c.r+c.g+c.b<1e4))c=vec4(0.,0.,0.,1.);gl_FragColor=vec4(clamp(c.rgb,0.,64.),1.);}`}))}catch(e){console.warn('AO',e);post.ao=null}}
   if(QL.bloom){post.bloom=new UnrealBloomPass(new THREE.Vector2(innerWidth/2,innerHeight/2),.42,.6,2.2);comp.addPass(post.bloom)}else post.bloom=null;
-  post.grade=new ShaderPass(GradeShader);comp.addPass(post.grade);post.grade.uniforms.uSharp.value=QL.ao?.32:.22;
+  post.grade=new ShaderPass(GradeShader);comp.addPass(post.grade);post.grade.uniforms.uSharp.value=QL.ao?.24:.16;
   post.composer=comp;resize();
   scene.traverse(o=>{if(o.material){(Array.isArray(o.material)?o.material:[o.material]).forEach(m=>m.needsUpdate=true)}});
 }
@@ -476,8 +476,8 @@ setShadowRes();
 
 const SKIES={
   day:{top:0x2c6fd8,hor:0xbdd8f2,sun:0xfff1dc,sunI:3.7,elev:.78,az:.7,exp:1.0,fog:[.0032,.0055,.00010],cloud:[.42,.6],ground:0x5d6152,mul:1.35},
-  golden:{top:0x3567c2,hor:0xffcf9c,sun:0xffb874,sunI:3.3,elev:.27,az:2.3,exp:1.08,fog:[.0040,.0050,.00013],cloud:[.48,.65],ground:0x6b5a45,mul:1.3},
-  sunset:{top:0x1d2a66,hor:0xff8a5a,sun:0xff8f50,sunI:2.8,elev:.12,az:-2.5,exp:1.2,fog:[.0048,.0050,.00016],cloud:[.52,.55],ground:0x4a3a40,mul:1.25},
+  golden:{top:0x3567c2,hor:0xffcf9c,sun:0xffb874,sunI:3.4,elev:.3,az:2.3,exp:1.06,fog:[.0034,.0050,.00011],cloud:[.48,.65],ground:0x6b5a45,mul:1.3},
+  sunset:{top:0x1d2a66,hor:0xff8a5a,sun:0xff8f50,sunI:3.0,elev:.18,az:-2.5,exp:1.15,fog:[.0033,.0050,.00011],cloud:[.52,.55],ground:0x4a3a40,mul:1.25},
   crisp:{top:0x1648b2,hor:0xd4eaff,sun:0xffffff,sunI:3.9,elev:.55,az:-.9,exp:.95,fog:[.0024,.0060,.00008],cloud:[.3,.5],ground:0x8090a0,mul:1.4},
 };
 const SUN_DIR=new V3();let SKY=SKIES.day;
@@ -544,12 +544,12 @@ function buildTexturesHD(){
     TEXU.tSnow.value=detailTex(h,S,8);TEXU.tSnowA.value=albTex(a,S)}
   // terra/areia: ondulações, seixos coloridos e manchas
   {const S=512,b=fbmTile(S,16,4,53),cv=fbmTile(S,6,3,57),w=worleyTile(S,44,59),h=new Float32Array(S*S),a=new Uint8Array(S*S*4);const pc=fbmTile(S,44,1,61);
-    for(let y=0;y<S;y++)for(let x=0;x<S;x++){const i=y*S+x;const peb=1-smooth(.18,.42,w.F1[i]);const rp=Math.sin(2*Math.PI*(x/S*14+y/S*5+b[i]*2))*.5+.5;const H=.5*b[i]+.2*rp+.3*peb;h[i]=H;
+    for(let y=0;y<S;y++)for(let x=0;x<S;x++){const i=y*S+x;const peb=(1-smooth(.12,.3,w.F1[i]))*smooth(.48,.7,b[i])*.9;const rp=Math.sin(2*Math.PI*(x/S*14+y/S*5+b[i]*2))*.5+.5;const H=.55*b[i]+.3*rp+.15*peb;h[i]=H;
       let R=lerp(.62,.78,cv[i]),G=lerp(.5,.64,cv[i]),B=lerp(.36,.46,cv[i]);const sh=.75+.35*b[i];R*=sh;G*=sh;B*=sh;
       if(peb>.05){const t=pc[i];const pr=lerp(.42,.72,t),pg=lerp(.4,.62,t),pb=lerp(.38,.55,t);R=lerp(R,pr,peb);G=lerp(G,pg,peb);B=lerp(B,pb,peb)}
-      const gap=smooth(.4,.5,w.F1[i])*(1-smooth(.5,.6,w.F1[i]));R*=1-gap*.25;G*=1-gap*.25;B*=1-gap*.25;
+      
       const g=(rnd()-.5)*.06;a[i*4]=c8(R+g);a[i*4+1]=c8(G+g);a[i*4+2]=c8(B+g);a[i*4+3]=255}
-    TEXU.tSand.value=detailTex(h,S,18);TEXU.tSandA.value=albTex(a,S)}
+    TEXU.tSand.value=detailTex(h,S,11);TEXU.tSandA.value=albTex(a,S)}
 }
 function buildTextures(){
   const S=512;
@@ -725,12 +725,12 @@ function terrainH(x,z){
   let h=g+t*(26+rg*210+nz*40)+Math.max(0,d-Wd-90)*.22;
   h+=fbm(W.n1,x*.045,z*.045,3)*1.8*smooth(Wd-3,Wd+8,d);
   if(s.surface==='asfalto'){const e=smooth(0,.05,s.lu)*(1-smooth(.95,1,s.lu)),lat=(x-s.p.x)*s.sd.x+(z-s.p.z)*s.sd.z,up=lat*(s.seg%2?1:-1)>0,dd=Math.max(0,d-7.6);let hs;
-    if(up)hs=s.ground+smooth(0,26,dd)*(16+rg*120+nz*30)+dd*.62+fbm(W.n1,x*.07,z*.07,3)*2.4*smooth(0,5,dd);
+    if(up)hs=s.ground+dd*.42+smooth(8,70,dd)*(8+rg*90+nz*25)+fbm(W.n1,x*.07,z*.07,3)*1.4*smooth(0,5,dd);
     else{const drop=Math.min(48,dd*.85+dd*dd*.004);hs=lerp(s.ground-.25-drop+fbm(W.n1,x*.05,z*.05,3)*2.6*smooth(0,6,dd),g+(26+rg*210+nz*40)*.55,smooth(70,210,d))}
     if(d<7.6)hs=s.ground;h=lerp(h,hs,e)}
   if(s.surface==='rock')h-=9*(1-smooth(12,20,d));
   if(wat){const deep=smooth(.06,.2,s.lu)*(1-smooth(.82,.92,s.lu));h+=(ridged(W.n1,x*.028,z*.028,4)*7+fbm(W.n2,x*.09,z*.09,3)*1.6+Math.max(0,fbm(W.n1,x*.012+3,z*.012,3))*14*smooth(20,45,d))*smooth(7,16,d)*deep}
-  if(W.water&&W.water.last){const E=W.S[W.S.length-1];const hl=Math.hypot(E.t.x,E.t.z)||1;const ah=((x-E.p.x)*E.t.x+(z-E.p.z)*E.t.z)/hl;if(ah>-25)h=lerp(h,W.water.level-28+fbm(W.n1,x*.01,z*.01,2)*6,smooth(-25,170,ah))}
+  if(W.water&&W.water.last){const E=W.S[W.S.length-1];const hl=Math.hypot(E.t.x,E.t.z)||1;const ah=((x-E.p.x)*E.t.x+(z-E.p.z)*E.t.z)/hl;if(ah>18)h=lerp(h,W.water.level-28+fbm(W.n1,x*.01,z*.01,2)*6,smooth(18,190,ah))}
   return h;
 }
 // heightfield grid lookups
@@ -763,7 +763,7 @@ function buildWorld(def,seed){
     else if(B.mod==='remo')off=-4.5*smooth(0,.03,lu)*(1-smooth(.97,1,lu));
     else if(B.mod==='skate'){const e=smooth(0,.12,lu)*(1-smooth(.88,1,lu));px+=Math.sin(i*DS/170*Math.PI*2)*26*e}
     else if(B.mod==='windsurf'){const nx=bounds[si+1]&&bounds[si+1].mod==='nado';off=-16*smooth(0,.06,lu)*(nx?1:(1-smooth(.93,1,lu)))}
-    S.push({p:new V3(px,yy,pz),s:i*DS,seg:si,mod:B.mod,surface:M.surface,lu,ground:yy+off,last:si===bounds.length-1,t:new V3(),sd:new V3()});
+    S.push({p:new V3(px,yy,pz),s:i*DS,seg:si,mod:B.mod,surface:M.surface,lu,ground:yy+off+(B.mod==='nado'&&si===bounds.length-1?smooth(.9,1,lu)*1.8:0),last:si===bounds.length-1,t:new V3(),sd:new V3()});
   }
   bounds.forEach(B=>{if(B.mod!=='paraquedas')return;const i0=Math.max(0,Math.round(B.a*n)),i1=Math.min(n,Math.round(B.b*n));const yEnd=S[i1].p.y;for(let i=i0;i<=i1;i++){const q=S[i];q.ground=lerp(lerp(q.p.y,yEnd,smooth(0,.035,q.lu)),q.p.y,smooth(.9,.995,q.lu))}});
   for(let i=0;i<S.length;i++){const a=S[Math.max(0,i-1)].p,b=S[Math.min(S.length-1,i+1)].p;S[i].t.subVectors(b,a).normalize();S[i].sd.set(-S[i].t.z,0,S[i].t.x).normalize()}
@@ -866,7 +866,7 @@ function buildWorld(def,seed){
   bounds.forEach((B,si)=>{if(si===0)return;const M=MODS[B.mod];makeGate(B.a*W.L+(M.surface==='air'?4:0),'TROCA ➜ '+M.label,M.surface==='air'?'#ff8a00':'#1e7bff',M.surface==='air'?'#ff2e63':'#29e3ff',false,M.surface==='air')});
   const fin=S[Math.round(W.FIN/DS)];
   const strip=new THREE.Mesh(new THREE.PlaneGeometry(21,2.4),new THREE.MeshStandardMaterial({map:cTex(256,32,(x)=>{for(let i=0;i<16;i++)for(let j=0;j<2;j++){x.fillStyle=(i+j)%2?'#111':'#fafafa';x.fillRect(i*16,j*16,16,16)}}),roughness:.7,polygonOffset:true,polygonOffsetFactor:-4,polygonOffsetUnits:-8}));
-  strip.rotation.x=-Math.PI/2;const sg=new THREE.Group();sg.position.set(fin.p.x,fin.ground+.3,fin.p.z);sg.rotation.y=Math.atan2(fin.t.x,fin.t.z);sg.add(strip);group.add(sg);
+  strip.rotation.x=-Math.PI/2;const sg=new THREE.Group();sg.position.set(fin.p.x,fin.ground+.08,fin.p.z);sg.rotation.y=Math.atan2(fin.t.x,fin.t.z);sg.add(strip);group.add(sg);
   // ---- vegetation, rocks, grass, crowd
   scatter(rng);
   makeGrass();
@@ -901,7 +901,9 @@ float mac=texture2D(tSnow,p.xz*.0021).a,mac2=texture2D(tGrass,p.xz*.0067).a,mac3
 float slope=1.-n.y;
 float rk=smoothstep(.27,.47,slope+(rockA-.5)*.35+(mac-.5)*.12);
 vec3 aRX=texture2D(tRockA,p.zy*rs).rgb,aRY=texture2D(tRockA,p.xz*rs).rgb,aRZ=texture2D(tRockA,p.xy*rs).rgb;vec3 rockAlb=aRX*bw.x+aRY*bw.y+aRZ*bw.z;
-{vec2 duv=bw.x>bw.z?p.zy:p.xy;duv=bw.y>max(bw.x,bw.z)?p.xz:duv;rockAlb=mix(rockAlb,texture2D(tRockA,duv*.021+.37).rgb,.42);}
+{vec2 duv=bw.x>bw.z?p.zy:p.xy;duv=bw.y>max(bw.x,bw.z)?p.xz:duv;rockAlb=mix(rockAlb,texture2D(tRockA,duv*.021+.37).rgb,.42*smoothstep(25.,120.,camD)+.12);
+ float nearF=1.-smoothstep(12.,75.,camD);if(nearF>.001){vec3 dn;vec4 dT;if(bw.y>max(bw.x,bw.z)){dT=texture2D(tRock,duv*.37+.13);dn=vec3(dT.x*2.-1.,0.,dT.y*2.-1.);}else if(bw.x>bw.z){dT=texture2D(tRock,duv*.37+.13);dn=vec3(0.,dT.y*2.-1.,dT.x*2.-1.);}else{dT=texture2D(tRock,duv*.37+.13);dn=vec3(dT.x*2.-1.,dT.y*2.-1.,0.);}
+  rockN=normalize(rockN+dn*.55*nearF);rockA=mix(rockA,rockA*.55+dT.a*.45,nearF);vec3 dA=texture2D(tRockA,duv*.37+.13).rgb;rockAlb=mix(rockAlb,rockAlb*.45+dA*.55,nearF*.7);}}
 vec2 rq=mat2(.8,-.6,.6,.8)*p.xz;
 vec3 gA=mix(texture2D(tGrassA,p.xz*.13).rgb,texture2D(tGrassA,rq*.047).rgb,smoothstep(.3,.7,mac2));
 vec3 snA=mix(texture2D(tSnowA,p.xz*.055).rgb,texture2D(tSnowA,rq*.021).rgb,.45);
@@ -971,14 +973,14 @@ diffuseColor.rgb*=alb;diffuseColor.a*=edge;
 vec3 tN=normalize(vec3(0.,1.,0.)+(mix(saT.xyz,rT.xyz,.5)*2.-1.).xzy*vec3(.8,0.,.8)*(1.-rut*.6));
 float tRough=.92-rut*.25;vec3 tE=vec3(0.);`;
     else if(kind==='river')body=`
-float ex=vR.x;vec2 uvA=vec2(ex*37.,vR.y)*.055+vec2(0.,-uTime*.3);vec2 uvB=vec2(ex*37.,vR.y)*.14+vec2(uTime*.03,-uTime*.52);
+float ex=vR.x;vec2 uvA=vec2(ex*37.,vR.y)*.17+vec2(0.,-uTime*.32);vec2 uvB=vec2(ex*37.,vR.y)*.43+vec2(uTime*.04,-uTime*.55);
 vec3 na=texture2D(tWaves,uvA).xyz*2.-1.,nb=texture2D(tWaves,uvB).xyz*2.-1.;
-vec3 tN=normalize(vec3(0.,1.,0.)+vec3(na.x+nb.x*.6,0.,na.y+nb.y*.6)*.3);
+vec3 tN=normalize(vec3(0.,1.,0.)+vec3(na.x+nb.x*.7,0.,na.y+nb.y*.7)*.11);
 float sh=min(ex,1.-ex);float bank=1.-smoothstep(.0,.09,sh);
 diffuseColor.rgb=mix(vec3(.016,.075,.07),vec3(.06,.13,.09),bank);
 float fo=smoothstep(.58,.92,rr_vnoise(vec2(ex*70.,vR.y*.35-uTime*1.4)))*bank*.55+(1.-smoothstep(.0,.012,sh))*.5;
 diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.78,.83,.8),clamp(fo,0.,1.));diffuseColor.a=1.;
-float tRough=mix(.045,.5,clamp(fo,0.,1.));vec3 tE=vec3(0.);`;
+float tRough=mix(.07,.5,clamp(fo,0.,1.));vec3 tE=vec3(0.);`;
     else if(kind==='pista')body=`
 float ex=vR.x;float edge=smoothstep(0.,.025,ex)*smoothstep(1.,.975,ex);
 vec4 saT=texture2D(tSand,vWP.xz*.3);float ln=step(abs(fract(ex*6.+.5)-.5),.014);
@@ -990,7 +992,7 @@ float tRough=mix(.78,.5,ln);vec3 tE=vec3(0.);`;
 float ex=vR.x;float edge=smoothstep(0.,.01,ex)*smoothstep(1.,.99,ex);
 vec4 saT=texture2D(tSand,vWP.xz*.42);vec4 rkT=texture2D(tRock,vWP.xz*.6);
 float n1=rr_vnoise(vWP.xz*.12),n2=rr_vnoise(vWP.xz*2.3),n3=rr_vnoise(vWP.xz*.035);
-vec3 alb=vec3(.078,.08,.086)*(.72+.42*saT.a+.28*n1)+vec3(.1)*smoothstep(.78,.9,n2);
+vec3 alb=vec3(.078,.08,.086)*(.74+.36*saT.a+.24*n1);
 float patchy=smoothstep(.55,.6,rr_vnoise(vec2(floor(vR.y/9.),floor(ex*3.))*.73+vec2(3.1,7.7)));alb*=mix(1.,.72,patchy*.7);
 float tm=smoothstep(.07,.0,abs(ex-.5-.2*sin(vR.y*.019)))*(.45+.55*rr_vnoise(vec2(ex*50.,vR.y*.04)));alb*=1.-.4*tm*smoothstep(.4,.7,n3);
 float wl=step(abs(ex-.055),.007)+step(abs(ex-.945),.007);
@@ -1038,8 +1040,8 @@ function buildVara(i0,i1){const S=W.S;const std=new THREE.MeshStandardMaterial({
     const mat=new THREE.Mesh(new RoundedBoxGeometry(13,1.2,7.4,3,.4),matM);mat.position.set(0,.6,4.8);mat.castShadow=mat.receiveShadow=true;g.add(mat);
     const box=new THREE.Mesh(new THREE.BoxGeometry(1.3,.06,1.8),new THREE.MeshStandardMaterial({color:0x1a1a1a,roughness:.5,metalness:.6}));box.position.set(0,.03,-2.3);g.add(box);
     W.group.add(g);W.bars.push({s:s.s,bar,fall:0})}}
-function strawTex(){return cTex(256,256,(x,w,h)=>{x.fillStyle='#c9a24e';x.fillRect(0,0,w,h);const R2=mulberry(11);for(let k=0;k<2600;k++){const v=R2();x.strokeStyle=v<.5?`rgba(120,86,30,${.25+R2()*.35})`:`rgba(250,226,150,${.2+R2()*.4})`;x.lineWidth=.6+R2()*1.4;const y0=R2()*h,x0=R2()*w;x.beginPath();x.moveTo(x0,y0);x.lineTo(x0+12+R2()*30,y0+(R2()-.5)*5);x.stroke()}
-  x.strokeStyle='rgba(60,40,15,.55)';x.lineWidth=5;[.3,.7].forEach(f=>{x.beginPath();x.moveTo(0,h*f);x.lineTo(w,h*f);x.stroke()})})}
+function strawTex(){return cTex(256,256,(x,w,h)=>{x.fillStyle='#d9b862';x.fillRect(0,0,w,h);const R2=mulberry(11);for(let k=0;k<2600;k++){const v=R2();x.strokeStyle=v<.5?`rgba(120,86,30,${.25+R2()*.35})`:`rgba(250,226,150,${.2+R2()*.4})`;x.lineWidth=.6+R2()*1.4;const y0=R2()*h,x0=R2()*w;x.beginPath();x.moveTo(x0,y0);x.lineTo(x0+12+R2()*30,y0+(R2()-.5)*5);x.stroke()}
+  x.strokeStyle='rgba(90,64,24,.35)';x.lineWidth=2;[.3,.7].forEach(f=>{x.beginPath();x.moveTo(0,h*f);x.lineTo(w,h*f);x.stroke()})})}
 function chevronTex(){return cTex(512,256,(x,w,h)=>{x.fillStyle='#ffd400';x.fillRect(0,0,w,h);x.fillStyle='#111';for(let k=0;k<3;k++){const ox=60+k*150;x.beginPath();x.moveTo(ox,30);x.lineTo(ox+70,30);x.lineTo(ox+150,128);x.lineTo(ox+70,226);x.lineTo(ox,226);x.lineTo(ox+80,128);x.closePath();x.fill()}x.strokeStyle='#111';x.lineWidth=10;x.strokeRect(5,5,w-10,h-10)})}
 function buildRoad(i0,i1){const S=W.S;const mt=new THREE.Matrix4(),q=new THREE.Quaternion(),e=new THREE.Euler(),sc=new V3(1,1,1),pp=new V3();
   const upS=i=>(S[i].seg%2?1:-1);
@@ -1693,7 +1695,7 @@ vCC=aPart<.5?mix(vec3(.03,.04,.07),aShirt*.3,.4):(aPart<1.5||(aPart>3.5&&aPart<5
 function makeCrowd(rng){
   const S=W.S,spots=[W.FIN-30,W.FIN+6,START_S+15,...W.bounds.slice(1).map(b=>b.a*W.L-25),...W.bounds.filter(b=>b.mod==='vara'||b.mod==='skate'||b.mod==='remo').map(b=>(b.a+b.b)/2*W.L),...(W.landS?[W.landS]:[])];
   const list=[],fences=[],flagsL=[];
-  spots.forEach(s0=>{for(let k=0;k<70;k++){const s=s0+rand(-26,26),i=clamp(Math.round(s/DS),0,S.length-1),p=S[i];if(!isG(p.surface)&&!(p.surface==='water'&&p.lu>.96)&&p.surface!=='rio'&&!(p.mod==='paraquedas'&&p.lu>.9))continue;const side=rng()<.5?-1:1,lat=side*(p.surface==='rio'?rand(21,29):p.mod==='paraquedas'?rand(18,26):p.surface==='asfalto'?rand(8.6,11):rand(12.6,19.5));
+  spots.forEach(s0=>{for(let k=0;k<70;k++){const s=s0+rand(-26,26),i=clamp(Math.round(s/DS),0,S.length-1),p=S[i];if(!isG(p.surface)&&!(p.surface==='water'&&p.lu>.96)&&p.surface!=='rio'&&!(p.mod==='paraquedas'&&p.lu>.9))continue;const side=rng()<.5?-1:1,lat=side*(p.surface==='rio'?rand(21,29):p.mod==='paraquedas'?rand(18,26):p.surface==='asfalto'?rand(9,12):rand(12.6,19.5));
       const x=p.p.x+p.sd.x*lat,z=p.p.z+p.sd.z*lat,y=gridH(x,z);if(W.water&&y<W.water.level+.3)continue;if(Math.abs(y-p.ground)>4)continue;list.push({x,z,y,ang:Math.atan2(-p.sd.x*side,-p.sd.z*side)})}
     for(let f=-24;f<=24;f+=3.3){const i=clamp(Math.round((s0+f)/DS),0,S.length-1),p=S[i];if(!isG(p.surface)||p.surface==='asfalto')continue;const fw=p.surface==='pista'?14.5:11.6;for(const side of[-1,1]){const x=p.p.x+p.sd.x*fw*side,z=p.p.z+p.sd.z*fw*side,y=gridH(x,z);if(Math.abs(y-p.ground)>3)continue;fences.push({x,y,z,ang:Math.atan2(p.t.x,p.t.z)});if(rng()<.18)flagsL.push({x:p.p.x+p.sd.x*20*side,y:gridH(p.p.x+p.sd.x*20*side,p.p.z+p.sd.z*20*side),z:p.p.z+p.sd.z*20*side,ang:Math.atan2(p.t.x,p.t.z)})}}});
   const mt=new THREE.Matrix4(),q=new THREE.Quaternion(),sc=new V3(1.5,1.5,1.5),pp=new V3();
@@ -1949,6 +1951,8 @@ function poseRider(r,t,standing){
     const sw=lerp(.78,-.55,dk),dp=ph<.42?-.19:.07;m.oarL.rotation.set(0,-sw,dp);m.oarR.rotation.set(0,sw,-dp)}
   else if(mod==='windsurf'){P.rotation.y=1.45;crouch(.24+Math.sin(t*1.7+r.phase)*.04);m.legL.rotation.z=.2;m.legR.rotation.z=-.2;Sp.rotation.x=-.42;m.neck.rotation.x=.25;m.neck.rotation.y=-.5;
     m.armL.rotation.x=m.armR.rotation.x=-1.38;m.armL.rotation.z=.32;m.armR.rotation.z=-.1;m.foreL.rotation.x=m.foreR.rotation.x=-.25}
+  else if(mod==='nado'&&(r.wade||0)>.5){const c=r.stroke*1.35,sw=Math.sin(c);P.position.y=.93+Math.abs(Math.cos(c))*.05;Sp.rotation.x=.22;m.neck.rotation.x=-.12;
+    m.legL.rotation.x=-sw*.8;m.legR.rotation.x=sw*.8;m.shinL.rotation.x=.25+Math.max(0,sw)*1.25;m.shinR.rotation.x=.25+Math.max(0,-sw)*1.25;m.armL.rotation.x=sw*.85;m.armR.rotation.x=-sw*.85;m.foreL.rotation.x=m.foreR.rotation.x=-1.35;m.armL.rotation.z=.14;m.armR.rotation.z=-.14}
   else if(mod==='nado'){P.position.set(0,1,0);P.rotation.x=Math.PI/2;const c=r.stroke;m.armL.rotation.x=c;m.armR.rotation.x=c+Math.PI;
     m.foreL.rotation.x=-.7*Math.max(0,Math.sin(c));m.foreR.rotation.x=-.7*Math.max(0,Math.sin(c+Math.PI));Sp.rotation.y=Math.sin(c)*.35;m.neck.rotation.x=-1.05;m.neck.rotation.y=Math.sin(c)*.5;
     const k=Math.sin(c*3)*.28;m.legL.rotation.x=k;m.legR.rotation.x=-k;m.shinL.rotation.x=.15+Math.max(0,-k);m.shinR.rotation.x=.15+Math.max(0,k)}
@@ -2079,10 +2083,14 @@ function updateRacer(r,dt,t){
   if(air&&!standing){const env=smooth(.03,.15,TA.lu)*(1-smooth(.8,1,TA.lu));P.y+=Math.sin(t*1.1+r.phase)*1.6*env-.22+env*.6}
   const climb=TA.mod==='escalada',swim=TA.mod==='nado';
   if(climb){_v.set(TA.tan.x,0,TA.tan.z).normalize();P.addScaledVector(_v,-.62);P.y=TA.pos.y-.3+jump;_look.copy(P).add(_v);if(e.stun>0)r.s=Math.max(r.s-dt*5,W.bounds[TA.seg].a*W.L+2)}
-  else if(swim){const under=W.water&&TA.pos.y<W.water.level-1;P.y=TA.pos.y-(under?1.5:2.3)+Math.sin(t*1.6+r.phase)*.22;_look.copy(P).add(TA.tan)}
-  else if(TA.mod==='remo'){P.y=TA.pos.y-.02+Math.sin(t*2+r.phase)*.04;_look.copy(P).add(TA.tan);const ph=((r.stroke||0)/(2*Math.PI))%1;if(ph<r.lastPh&&G.state==='race'&&camera.position.distanceToSquared(P)<140*140){for(const o of[r.m.oarL,r.m.oarR]){const bl=o.children[1];if(bl){bl.getWorldPosition(_v);puddle(_v.x,TA.pos.y,_v.z)}}}r.lastPh=ph}
+  else if(swim){const under=W.water&&TA.pos.y<W.water.level-1;const lv=W.water?W.water.level:TA.pos.y;r.wade=W.water&&W.water.last&&TA.last?smooth(lv-1.2,lv-.25,TA.ground):0;
+    P.y=lerp(TA.pos.y-(under?1.5:2.3)+Math.sin(t*1.6+r.phase)*.22,TA.ground+.04,r.wade);_look.copy(P).add(TA.tan);_look.y=P.y;r.m.fins.forEach(f=>f.visible=r.wade<.5);
+    if(r.wade>.05&&r.wade<.95&&r.v>3&&Math.random()<dt*14)PUFF.emit(P.x+rand(-.4,.4),lv+.1,P.z+rand(-.4,.4),rand(-1,1),rand(1.5,3.5),rand(-1,1),1,1.05,1.1,rand(.4,.8),.5,6,.6,1.2)}
+  else r.wade=0;
+  if(!swim&&!climb){
+  if(TA.mod==='remo'){P.y=TA.pos.y-.02+Math.sin(t*2+r.phase)*.04;_look.copy(P).add(TA.tan);const ph=((r.stroke||0)/(2*Math.PI))%1;if(ph<r.lastPh&&G.state==='race'&&camera.position.distanceToSquared(P)<140*140){for(const o of[r.m.oarL,r.m.oarR]){const bl=o.children[1];if(bl){bl.getWorldPosition(_v);puddle(_v.x,TA.pos.y,_v.z)}}}r.lastPh=ph}
   else if(TA.mod==='windsurf'){const lv=W.water?W.water.level:TA.pos.y,tt=FOGU.uTime.value;P.y=lv+waveH(P.x,P.z,tt)+.06+jump;_look.copy(P).addScaledVector(TA.tan,1.2);_look.y=lv+waveH(_look.x,_look.z,tt)+.06+jump}
-  else _look.copy(P).add(TA.tan);
+  else _look.copy(P).add(TA.tan)}
   r.root.lookAt(_look);
   const bk=climb?0:clamp(-r.latV*(air?.12:.06),-.7,.7);r.m.bank.rotation.z=lerp(r.m.bank.rotation.z,bk,1-Math.exp(-dt*4));
   r.pedal+=dt*(r.v*.45);r.wheel-=r.v*dt/.51;r.climb=(r.climb||0)+dt*r.v*1.15;r.stroke=(r.stroke||0)+dt*(1.6+r.v*.3);
@@ -2107,7 +2115,7 @@ function updateRacer(r,dt,t){
       else if(M.surface==='water'){const lv=W.water?W.water.level:P.y;if(P.y+1.5<lv-.5){if(Math.random()<.6)BUB.emit(P.x+rand(-.6,.6),P.y+1.8,P.z+rand(-.6,.6),rand(-.3,.3),rand(1.5,3),rand(-.3,.3),1,1,1,rand(.15,.42),2.2,-2.6,.95,.05)}
         else if(Math.random()<.5)PUFF.emit(P.x+rand(-1,1),lv+.1,P.z+rand(-1,1),rand(-1,1),rand(1,2.5),rand(-1,1),1.05,1.1,1.15,rand(.22,.45),.5,6,.5,.8)}
       else if(M.surface==='rio'||M.surface==='mar'){const ph=((r.stroke||0)/(2*Math.PI))%1;if(M.surface==='mar'||ph<.08){for(let q=0;q<(M.surface==='mar'?2:3);q++)PUFF.emit(P.x-TA.tan.x*1.2+rand(-.5,.5)+(M.surface==='rio'?TA.side.x*rand(-3.3,3.3):0),P.y+.12,P.z-TA.tan.z*1.2+rand(-.5,.5)+(M.surface==='rio'?TA.side.z*rand(-3.3,3.3):0),-TA.tan.x*r.v*.08+TA.side.x*rand(-2,2),rand(.6,2.4),-TA.tan.z*r.v*.08+TA.side.z*rand(-2,2),1.05,1.1,1.15,rand(.25,.55),.55,6,.6,1)}}
-      else if(M.surface==='pista'||(M.surface==='asfalto'&&Math.abs(r.latV||0)>1.2)){if(Math.random()<.4)PUFF.emit(P.x+rand(-.3,.3),P.y+.15,P.z+rand(-.3,.3),rand(-.6,.6),rand(.3,1),rand(-.6,.6),.55,.5,.4,rand(.4,.8),.5,.5,.35,1.5)}
+      else if(M.surface==='pista'){if(Math.random()<.4)PUFF.emit(P.x+rand(-.3,.3),P.y+.15,P.z+rand(-.3,.3),rand(-.6,.6),rand(.3,1),rand(-.6,.6),.55,.5,.4,rand(.4,.8),.5,.5,.35,1.5)}
       else if(M.surface==='rock'){if(Math.random()<.25)PUFF.emit(P.x+rand(-.5,.5),P.y+rand(2.2,3.4),P.z+rand(-.5,.5),rand(-.4,.4),rand(-.6,.2),rand(-.4,.4),1.1,1.1,1.1,rand(.25,.55),.9,-.1,.55,.8)}
       else if(!standing){if(r.mod==='rocket'){GLOW.emit(P.x-TA.tan.x*1.5,P.y+1.15,P.z-TA.tan.z*1.5,-TA.tan.x*9,rand(-1,1),-TA.tan.z*9,2.5,1.1,.35,rand(.6,1),.35,0,1);PUFF.emit(P.x-TA.tan.x*2,P.y+1.15,P.z-TA.tan.z*2,0,.4,0,.75,.75,.8,1.3,1.4,0,.3,2.2)}
         else for(const sd of[-1.45,1.45])GLOW.emit(P.x+TA.side.x*sd,P.y+1,P.z+TA.side.z*sd,0,0,0,.6,.65,.75,.35,.8,0,.6,-.1)}
@@ -2277,7 +2285,7 @@ function updateCamera(dt,t){
     trackAt(f.s,CTA);const air=CTA.surface==='air',fp=f.root.position;const shot=spot?'chase':CAM.shot;
     const sfc=CTA.surface;
     if(sfc==='rock'){_v.set(CTA.tan.x,0,CTA.tan.z).normalize();_dp.copy(fp).addScaledVector(_v,-11.5).addScaledVector(CTA.side,Math.sin(t*.3)*4.5);_dp.y=fp.y+1.2;_dl.copy(fp);_dl.y+=3.4;k=2.4}
-    else if(sfc==='water'){if(shot==='front'){_dp.copy(fp).addScaledVector(CTA.tan,8);_dp.y=fp.y+2.1;_dl.copy(fp).addScaledVector(CTA.tan,-4);_dl.y+=1.5;k=2.6}
+    else if(sfc==='water'&&!((f.wade||0)>.5)){if(shot==='front'){_dp.copy(fp).addScaledVector(CTA.tan,8);_dp.y=fp.y+2.1;_dl.copy(fp).addScaledVector(CTA.tan,-4);_dl.y+=1.5;k=2.6}
       else{_dp.copy(fp).addScaledVector(CTA.tan,-9.5).addScaledVector(CTA.side,Math.sin(t*.4)*1.1);_dp.y=fp.y+2.3;_dl.copy(fp).addScaledVector(CTA.tan,8);_dl.y+=1.4;k=3}}
     else if(shot==='front'){_dp.copy(fp).addScaledVector(CTA.tan,13);_dp.y=fp.y+(air?3:2.6);_dp.addScaledVector(CTA.side,3.5);_dl.copy(fp).addScaledVector(CTA.tan,-6);_dl.y+=1.4;k=2.6}
     else if(shot==='low'){_dp.copy(fp).addScaledVector(CTA.tan,-7.5).addScaledVector(CTA.side,4.2);_dp.y=fp.y+1.1;_dl.copy(fp).addScaledVector(CTA.tan,10);_dl.y+=1.8;k=3.4}
@@ -2583,7 +2591,7 @@ function frame(){
   const light=new THREE.Color().copy(FOGU.uSunCol.value).multiplyScalar(SKY.sunI*.32).add(FOGU.uSkyHor.value.clone().multiplyScalar(.55));PUFF.mat.uniforms.uLight.value.copy(light);BUB.mat.uniforms.uLight.value.setRGB(.7,1.,1.15);
   if(grass){_tmp.set(0,0,-1).applyQuaternion(camera.quaternion);_tmp.y=0;_tmp.normalize();GRASSU.uCenter.value.set(camera.position.x+_tmp.x*40,camera.position.z+_tmp.z*40);grass.visible=camera.position.y-gridH(camera.position.x,camera.position.z)<80;if(cover)cover.visible=FOGU.uUnder.value.w>0}
   trackAt(CAM.focus&&G.state==='race'?CAM.focus.s:START_S,CTA);
-  const underNow=FOGU.uUnder.value.w>0;const snowy=CTA.surface==='snow'||SKY===SKIES.crisp||underNow;snow.material.color.setRGB(underNow?.55:1,underNow?.8:1,underNow?.85:1);snow.material.size=underNow?.08:.22;snow.material.opacity=lerp(snow.material.opacity,snowy?(underNow?.32:.85):0,1-Math.exp(-dt*2));snow.visible=snow.material.opacity>.02;
+  const underNow=FOGU.uUnder.value.w>0;const snowy=CTA.surface==='snow'||(SKY===SKIES.crisp&&(CTA.surface==='rock'||CTA.surface==='air'))||underNow;snow.material.color.setRGB(underNow?.55:1,underNow?.8:1,underNow?.85:1);snow.material.size=underNow?.08:.22;snow.material.opacity=lerp(snow.material.opacity,snowy?(underNow?.32:.85):0,1-Math.exp(-dt*2));snow.visible=snow.material.opacity>.02;
   if(snow.visible){const cp=camera.position;for(let i=0;i<SNOWN;i++){const j=i*3;snowPos[j+1]-=dt*(underNow?.25+(i%5)*.08:2.5+(i%5)*.8);snowPos[j]+=Math.sin(t*.7+i)*dt*.8;
     const dx=snowPos[j]-cp.x,dy=snowPos[j+1]-cp.y,dz=snowPos[j+2]-cp.z;if(dx>60)snowPos[j]-=120;else if(dx<-60)snowPos[j]+=120;if(dy<-40)snowPos[j+1]+=80;else if(dy>40)snowPos[j+1]-=80;if(dz>60)snowPos[j+2]-=120;else if(dz<-60)snowPos[j+2]+=120}snowGeo.attributes.position.needsUpdate=true}
   {const under=!!(W.water&&ocean&&ocean.visible&&camera.position.y<W.water.level+.05);FOGU.uUnder.value.set(.012,.1,.12,under?.045:0);

@@ -46,12 +46,12 @@ function buildTexturesHD(){
     TEXU.tSnow.value=detailTex(h,S,8);TEXU.tSnowA.value=albTex(a,S)}
   // terra/areia: ondulações, seixos coloridos e manchas
   {const S=512,b=fbmTile(S,16,4,53),cv=fbmTile(S,6,3,57),w=worleyTile(S,44,59),h=new Float32Array(S*S),a=new Uint8Array(S*S*4);const pc=fbmTile(S,44,1,61);
-    for(let y=0;y<S;y++)for(let x=0;x<S;x++){const i=y*S+x;const peb=1-smooth(.18,.42,w.F1[i]);const rp=Math.sin(2*Math.PI*(x/S*14+y/S*5+b[i]*2))*.5+.5;const H=.5*b[i]+.2*rp+.3*peb;h[i]=H;
+    for(let y=0;y<S;y++)for(let x=0;x<S;x++){const i=y*S+x;const peb=(1-smooth(.12,.3,w.F1[i]))*smooth(.48,.7,b[i])*.9;const rp=Math.sin(2*Math.PI*(x/S*14+y/S*5+b[i]*2))*.5+.5;const H=.55*b[i]+.3*rp+.15*peb;h[i]=H;
       let R=lerp(.62,.78,cv[i]),G=lerp(.5,.64,cv[i]),B=lerp(.36,.46,cv[i]);const sh=.75+.35*b[i];R*=sh;G*=sh;B*=sh;
       if(peb>.05){const t=pc[i];const pr=lerp(.42,.72,t),pg=lerp(.4,.62,t),pb=lerp(.38,.55,t);R=lerp(R,pr,peb);G=lerp(G,pg,peb);B=lerp(B,pb,peb)}
-      const gap=smooth(.4,.5,w.F1[i])*(1-smooth(.5,.6,w.F1[i]));R*=1-gap*.25;G*=1-gap*.25;B*=1-gap*.25;
+      
       const g=(rnd()-.5)*.06;a[i*4]=c8(R+g);a[i*4+1]=c8(G+g);a[i*4+2]=c8(B+g);a[i*4+3]=255}
-    TEXU.tSand.value=detailTex(h,S,18);TEXU.tSandA.value=albTex(a,S)}
+    TEXU.tSand.value=detailTex(h,S,11);TEXU.tSandA.value=albTex(a,S)}
 }
 function buildTextures(){
   const S=512;

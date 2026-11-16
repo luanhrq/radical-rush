@@ -60,7 +60,7 @@ function setupPost(){
   if(!GTAOPass.prototype._rrFix){const sg=GTAOPass.prototype.setGBuffer;GTAOPass.prototype.setGBuffer=function(d,n){if(d!==undefined&&!this.normalRenderTarget)this.normalRenderTarget={depthTexture:d,setSize(){},dispose(){}};return sg.call(this,d,n)};GTAOPass.prototype._rrFix=1}
   if(QL.ao){try{post.ao=new GTAOPass(scene,camera,innerWidth,innerHeight,{depthTexture:dtex},{radius:2.4,distanceExponent:1.4,thickness:3,scale:1.1,samples:QL.ao,distanceFallOff:1,screenSpaceRadius:false});post.ao.blendIntensity=.9;comp.addPass(post.ao);comp.addPass(new ShaderPass({uniforms:{tDiffuse:{value:null}},vertexShader:`varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,fragmentShader:`uniform sampler2D tDiffuse;varying vec2 vUv;void main(){vec4 c=texture2D(tDiffuse,vUv);if(!(c==c)||!(c.r+c.g+c.b<1e4))c=vec4(0.,0.,0.,1.);gl_FragColor=vec4(clamp(c.rgb,0.,64.),1.);}`}))}catch(e){console.warn('AO',e);post.ao=null}}
   if(QL.bloom){post.bloom=new UnrealBloomPass(new THREE.Vector2(innerWidth/2,innerHeight/2),.42,.6,2.2);comp.addPass(post.bloom)}else post.bloom=null;
-  post.grade=new ShaderPass(GradeShader);comp.addPass(post.grade);post.grade.uniforms.uSharp.value=QL.ao?.32:.22;
+  post.grade=new ShaderPass(GradeShader);comp.addPass(post.grade);post.grade.uniforms.uSharp.value=QL.ao?.24:.16;
   post.composer=comp;resize();
   scene.traverse(o=>{if(o.material){(Array.isArray(o.material)?o.material:[o.material]).forEach(m=>m.needsUpdate=true)}});
 }
@@ -115,8 +115,8 @@ setShadowRes();
 
 const SKIES={
   day:{top:0x2c6fd8,hor:0xbdd8f2,sun:0xfff1dc,sunI:3.7,elev:.78,az:.7,exp:1.0,fog:[.0032,.0055,.00010],cloud:[.42,.6],ground:0x5d6152,mul:1.35},
-  golden:{top:0x3567c2,hor:0xffcf9c,sun:0xffb874,sunI:3.3,elev:.27,az:2.3,exp:1.08,fog:[.0040,.0050,.00013],cloud:[.48,.65],ground:0x6b5a45,mul:1.3},
-  sunset:{top:0x1d2a66,hor:0xff8a5a,sun:0xff8f50,sunI:2.8,elev:.12,az:-2.5,exp:1.2,fog:[.0048,.0050,.00016],cloud:[.52,.55],ground:0x4a3a40,mul:1.25},
+  golden:{top:0x3567c2,hor:0xffcf9c,sun:0xffb874,sunI:3.4,elev:.3,az:2.3,exp:1.06,fog:[.0034,.0050,.00011],cloud:[.48,.65],ground:0x6b5a45,mul:1.3},
+  sunset:{top:0x1d2a66,hor:0xff8a5a,sun:0xff8f50,sunI:3.0,elev:.18,az:-2.5,exp:1.15,fog:[.0033,.0050,.00011],cloud:[.52,.55],ground:0x4a3a40,mul:1.25},
   crisp:{top:0x1648b2,hor:0xd4eaff,sun:0xffffff,sunI:3.9,elev:.55,az:-.9,exp:.95,fog:[.0024,.0060,.00008],cloud:[.3,.5],ground:0x8090a0,mul:1.4},
 };
 const SUN_DIR=new V3();let SKY=SKIES.day;

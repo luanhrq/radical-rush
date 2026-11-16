@@ -232,6 +232,8 @@ function poseRider(r,t,standing){
     const sw=lerp(.78,-.55,dk),dp=ph<.42?-.19:.07;m.oarL.rotation.set(0,-sw,dp);m.oarR.rotation.set(0,sw,-dp)}
   else if(mod==='windsurf'){P.rotation.y=1.45;crouch(.24+Math.sin(t*1.7+r.phase)*.04);m.legL.rotation.z=.2;m.legR.rotation.z=-.2;Sp.rotation.x=-.42;m.neck.rotation.x=.25;m.neck.rotation.y=-.5;
     m.armL.rotation.x=m.armR.rotation.x=-1.38;m.armL.rotation.z=.32;m.armR.rotation.z=-.1;m.foreL.rotation.x=m.foreR.rotation.x=-.25}
+  else if(mod==='nado'&&(r.wade||0)>.5){const c=r.stroke*1.35,sw=Math.sin(c);P.position.y=.93+Math.abs(Math.cos(c))*.05;Sp.rotation.x=.22;m.neck.rotation.x=-.12;
+    m.legL.rotation.x=-sw*.8;m.legR.rotation.x=sw*.8;m.shinL.rotation.x=.25+Math.max(0,sw)*1.25;m.shinR.rotation.x=.25+Math.max(0,-sw)*1.25;m.armL.rotation.x=sw*.85;m.armR.rotation.x=-sw*.85;m.foreL.rotation.x=m.foreR.rotation.x=-1.35;m.armL.rotation.z=.14;m.armR.rotation.z=-.14}
   else if(mod==='nado'){P.position.set(0,1,0);P.rotation.x=Math.PI/2;const c=r.stroke;m.armL.rotation.x=c;m.armR.rotation.x=c+Math.PI;
     m.foreL.rotation.x=-.7*Math.max(0,Math.sin(c));m.foreR.rotation.x=-.7*Math.max(0,Math.sin(c+Math.PI));Sp.rotation.y=Math.sin(c)*.35;m.neck.rotation.x=-1.05;m.neck.rotation.y=Math.sin(c)*.5;
     const k=Math.sin(c*3)*.28;m.legL.rotation.x=k;m.legR.rotation.x=-k;m.shinL.rotation.x=.15+Math.max(0,-k);m.shinR.rotation.x=.15+Math.max(0,k)}
