@@ -7,7 +7,7 @@
     #tr{position:relative}
     #btnPad{
       position:fixed;right:max(22px,env(safe-area-inset-right,0px));
-      top:calc(68px + env(safe-area-inset-top,0px));z-index:5;
+      top:calc(20px + env(safe-area-inset-top,0px));z-index:5;
       min-width:112px;min-height:44px;padding:10px 20px;
       border:1px solid rgba(255,111,111,.52);border-radius:12px;
       background:linear-gradient(120deg,#ff4a1c,#e51f4b);
@@ -25,7 +25,7 @@
     #pad #btnJoin:disabled{background:rgba(255,255,255,.1);color:#9098a8;opacity:.65;cursor:not-allowed}
     #hostConnectionState{font-size:12px;line-height:1.45;overflow-wrap:anywhere}
     @media(max-width:860px){
-      #btnPad{right:max(12px,env(safe-area-inset-right,0px));top:calc(66px + env(safe-area-inset-top,0px));min-width:100px;min-height:42px}
+      #btnPad{right:max(12px,env(safe-area-inset-right,0px));top:calc(12px + env(safe-area-inset-top,0px));min-width:100px;min-height:42px}
       #pad{width:auto}
     }
   `;
@@ -49,13 +49,12 @@
     const connected=authenticated();
     nameInput.value=connected?twitchLogin:'';
     nameInput.readOnly=true;
-    nameInput.placeholder=connected?'Canal conectado': 'Conecte sua conta Twitch na tela inicial';
-    joinButton.textContent=racers.has(twitchLogin)||pending.has(twitchLogin)?'SAIR':'ENTRAR';
+    nameInput.placeholder=connected?'Canal conectado':'Conecte sua conta Twitch na tela inicial';
+    joinButton.textContent=connected&&(racers.has(twitchLogin.toLowerCase())||pending.has(twitchLogin.toLowerCase()))?'SAIR':'ENTRAR';
     joinButton.disabled=!connected;
     joinButton.title=connected?`Entrar na corrida como @${twitchLogin}`:'Conecte sua conta Twitch antes de entrar.';
   };
 
-  // Use only the Twitch-authenticated login/name for the host's test entry.
   joinButton.onclick=()=>{
     if(!authenticated()){
       feed('🔒 Conecte sua conta Twitch na tela inicial antes de entrar.');
@@ -67,8 +66,6 @@
     syncIdentity();
   };
 
-  // Remove the previous local-demo command delegate; host commands must also
-  // be issued as the connected account and only for its active race entry.
   const oldCmds=$('padCmds');
   if(oldCmds){
     const cmds=oldCmds.cloneNode(true);
@@ -83,8 +80,6 @@
     });
   }
 
-  // Wrap the regular host-pad updater so controls follow login, race state,
-  // and command cooldowns rather than the old local placeholder pilot.
   const baseUpdatePad=updatePad;
   updatePad=function(){
     baseUpdatePad();
@@ -105,8 +100,6 @@
   window.addEventListener('rr:twitch-disconnected',syncIdentity);
   syncIdentity();
 
-  // The earlier demo key handler uses a hard-coded local rider; intercept its
-  // numeric shortcuts and route them through the authenticated channel instead.
   window.addEventListener('keydown',event=>{
     if(!/^[1-9]$/.test(event.key)||event.target.matches('input,select,textarea'))return;
     event.stopImmediatePropagation();
