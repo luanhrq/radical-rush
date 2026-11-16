@@ -173,7 +173,7 @@ function connectTwitch(ch,manual){
     if(m){const login=m[1],name=(tags['display-name']||login).replace(/\\s/g,' ');handleChat(login,name||login,tags.color,m[2]);continue}
     if(/ (366|ROOMSTATE) /.test(rest)){
       G.twitch='ok';wsTry=0;
-      setStatus(true,twitchLogin&&twitchLogin===ch?`Twitch: @${twitchLogin} • canal #${ch}`:`Twitch: #${ch} • digite !radical`);
+      setStatus(true,`Twitch • #${ch}`);
       window.dispatchEvent(new CustomEvent('rr:twitch-chat-connected',{detail:{channel:ch,login:twitchLogin}}));
     }
   }};

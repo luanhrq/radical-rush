@@ -38,7 +38,7 @@
       <div id="lobbySegs" class="route"></div>
       <div id="lobbyRules" class="rules"></div>
       <div class="cta"><div class="cta-k">!radical</div><div class="cta-t">Digite no chat de <b id="lobbyChan">jhonnydrumond</b> para entrar na corrida</div></div>
-      <div class="lb-timer"><div><div class="lbl">Largada em</div><div id="lobbyTimer" class="num">--</div></div><div id="lobbyCount">Aguardando pilotos…</div></div>
+      <div id="lobbyTimerBox" class="lb-timer wait"><div class="lb-num"><div class="lbl">Largada em</div><div id="lobbyTimer" class="num">--</div></div><div id="lobbyCount">Aguardando pilotos…</div></div>
     </div>
     <div class="lb-right">
       <div class="card"><div class="card-h">PILOTOS NA LARGADA <span id="lobbyN">0</span></div><div id="lobbyPlayers" class="pgrid"></div></div>
@@ -59,13 +59,24 @@
 
   <div id="ticker"><div class="lbl2">CHAT</div><div id="tickTrack"></div></div>
 
-  <div id="pad" class="glass">
-    <div class="ph">CONTROLE DE TESTE <span id="padVer">tecla C · atalhos 1–9</span></div>
-    <div class="prow"><input id="padName" maxlength="20" value="Você" aria-label="Seu nome de piloto"><button id="btnJoin" type="button">ENTRAR</button></div>
-    <div id="padCmds"></div>
-    <div class="prow"><select id="selRounds" aria-label="Número de rodadas"><option value="3">Campeonato: 3 rodadas</option><option value="5">Campeonato: 5 rodadas</option><option value="7">Campeonato: 7 rodadas</option><option value="10">Campeonato: 10 rodadas</option><option value="0">Campeonato: sem fim</option></select></div>
-    <div class="prow"><button id="btnBots" class="sec" type="button">+4 BOTS</button><select id="selQ" aria-label="Qualidade gráfica"><option value="ultra">Gráficos: Ultra</option><option value="high">Gráficos: Alto</option><option value="medium">Gráficos: Médio</option><option value="low">Gráficos: Baixo</option></select></div>
-    <div class="prow"><input id="padChan" placeholder="canal da Twitch" aria-label="Canal da Twitch"><button id="btnChan" class="sec" type="button">CONECTAR</button></div>
+  <div id="pad" class="glass" role="dialog" aria-label="Painel do host">
+    <div class="ph"><span class="ph-t">PAINEL DO HOST</span><span id="padVer">tecla C · atalhos 1–9</span><button id="padClose" class="pclose" type="button" aria-label="Fechar o painel">✕</button></div>
+    <section class="psec">
+      <div class="psec-h">VOCÊ NA CORRIDA</div>
+      <div class="prow pid"><input id="padName" maxlength="20" value="Você" aria-label="Seu nome de piloto"><button id="btnJoin" type="button">ENTRAR</button></div>
+      <div id="padCmdsHint" class="phint"></div>
+      <div id="padCmds"></div>
+    </section>
+    <section class="psec">
+      <div class="psec-h">CORRIDA</div>
+      <div class="prow"><button id="padStart" type="button">▶ INICIAR AGORA</button><button id="btnBots" class="sec" type="button">+4 BOTS</button></div>
+      <div class="prow"><select id="selRounds" aria-label="Número de rodadas"><option value="3">Campeonato: 3 rodadas</option><option value="5">Campeonato: 5 rodadas</option><option value="7">Campeonato: 7 rodadas</option><option value="10">Campeonato: 10 rodadas</option><option value="0">Campeonato: sem fim</option></select></div>
+    </section>
+    <section class="psec">
+      <div class="psec-h">IMAGEM</div>
+      <div class="prow"><select id="selQ" aria-label="Qualidade gráfica"><option value="ultra">Gráficos: Ultra</option><option value="high">Gráficos: Alto</option><option value="medium">Gráficos: Médio</option><option value="low">Gráficos: Baixo</option></select></div>
+    </section>
+    <div class="prow" hidden><input id="padChan" placeholder="canal da Twitch" aria-label="Canal da Twitch"><button id="btnChan" class="sec" type="button">CONECTAR</button></div>
     <div id="padNote"></div>
   </div>
 </div>

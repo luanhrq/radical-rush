@@ -59,7 +59,7 @@ Sem login, também dá para só ler o chat de um canal com `?channel=seucanal` n
 | Aproximar / afastar | Shift + scroll |
 | Voltar para a câmera automática | Duplo clique ou tecla A |
 
-A tecla **C** abre o painel de teste: entrar como piloto, usar as trapaças (teclas 1 a 9), adicionar bots, trocar a qualidade gráfica e o canal.
+O botão **HOST** (ou a tecla **C**) abre o painel do host: entrar na corrida com a sua conta, usar as trapaças (teclas 1 a 9), iniciar agora, adicionar bots, escolher o tamanho do campeonato e a qualidade gráfica. **Esc** ou o **✕** fecham. Durante a corrida o botão e o painel ficam translúcidos para não tapar a cena e voltam ao normal quando o mouse passa por cima; com o painel aberto, a classificação se afasta para não ficar coberta.
 
 ## Comandos do chat
 

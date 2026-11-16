@@ -2,34 +2,7 @@
 // HOST PANEL — owner controls and authenticated Twitch identity
 // ======================================================================
 (function configureHostPanelForTwitch(){
-  const style=document.createElement('style');
-  style.textContent=`
-    #tr{position:relative}
-    #btnPad{
-      position:fixed;right:max(22px,env(safe-area-inset-right,0px));
-      top:calc(20px + env(safe-area-inset-top,0px));z-index:5;
-      min-width:112px;min-height:44px;padding:10px 20px;
-      border:1px solid rgba(255,111,111,.52);border-radius:12px;
-      background:linear-gradient(120deg,#ff4a1c,#e51f4b);
-      color:#fff;font-size:13px;font-weight:900;letter-spacing:.16em;
-      box-shadow:0 8px 26px rgba(255,45,65,.32);
-      transition:filter .18s,transform .18s,box-shadow .18s;
-    }
-    #btnPad:hover{filter:brightness(1.13);transform:translateY(-1px);box-shadow:0 11px 30px rgba(255,45,65,.43)}
-    #btnPad[aria-expanded="true"]{background:linear-gradient(120deg,#c92232,#941b38)}
-    #pad{width:min(410px,calc(100vw - 32px));}
-    #pad .ph{color:#fff;font-size:12px;letter-spacing:.2em}
-    #pad #padName{min-width:0;color:#fff;font-weight:700}
-    #pad #padName[readonly]{border-color:rgba(93,255,160,.25);background:rgba(93,255,160,.07)}
-    #pad #btnJoin{min-width:110px;min-height:44px;background:linear-gradient(120deg,#ff4a1c,#ff2e63);font-size:13px;letter-spacing:.08em}
-    #pad #btnJoin:disabled{background:rgba(255,255,255,.1);color:#9098a8;opacity:.65;cursor:not-allowed}
-    #hostConnectionState{font-size:12px;line-height:1.45;overflow-wrap:anywhere}
-    @media(max-width:860px){
-      #btnPad{right:max(12px,env(safe-area-inset-right,0px));top:calc(12px + env(safe-area-inset-top,0px));min-width:100px;min-height:42px}
-      #pad{width:auto}
-    }
-  `;
-  document.head.append(style);
+  // estilos em src/style.css (seção "Streamer e painel HOST")
 
   const pad=$('pad'),hostToggle=$('btnPad'),nameInput=$('padName'),joinButton=$('btnJoin');
   if(hostToggle){

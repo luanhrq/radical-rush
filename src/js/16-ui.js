@@ -9,7 +9,9 @@ function feed(html){const el=document.createElement('div');el.className='fi';el.
 let cdTO=0;function countdown(txt){sfx(txt==='VAI!'?'go':'beep');const el=$('countdown');clearTimeout(cdTO);cdTO=setTimeout(()=>el.textContent='',950);el.textContent=txt;el.classList.remove('pop');void el.offsetWidth;el.classList.add('pop')}
 function renderLobby(){
   const n=racers.size+pending.size;
-  $('lobbyTimer').textContent=isFinite(G.timer)&&G.state==='lobby'?String(Math.max(0,Math.ceil(G.timer))).padStart(2,'0'):'--';
+  const counting=isFinite(G.timer)&&G.state==='lobby';
+  $('lobbyTimer').textContent=counting?String(Math.max(0,Math.ceil(G.timer))).padStart(2,'0'):'--';
+  const tb=$('lobbyTimerBox');if(tb)tb.classList.toggle('wait',!counting);
   $('lobbyCount').textContent=n===0?'Aguardando o primeiro piloto…':isFinite(G.timer)?`${n} piloto${n>1?'s':''} confirmado${n>1?'s':''}`:`${n} pilotos`;
   $('lobbyN').textContent=n;
   $('lobbyPlayers').innerHTML=n?[...racers.values()].map(r=>`<div class="pt">${avatarHTML(r,24)}<span>${esc(r.name)}${r.isBot?' · bot':''}</span></div>`).join(''):'<div class="muted">Ninguém ainda. Seja o primeiro: !radical</div>';
@@ -29,7 +31,7 @@ $('cmdHelp').innerHTML=CMDS.slice(1,10).map(([c,d])=>`<div><code>${c.split(' ')[
 
 // ---- test pad
 const PAD_CMDS=[['turbo','⚡ Turbo'],['rasteira','🦶 Rasteira'],['oleo','🛢️ Óleo'],['escudo','🛡️ Escudo'],['manobra','🤸 Manobra'],['atalho','🌀 Atalho'],['missil','🚀 Míssil'],['troca','🔄 Troca'],['tubarao','🦈 Tubarão']];
-$('padCmds').innerHTML=PAD_CMDS.map(([c,l],i)=>`<button type="button" data-cmd="${c}">${l}<small>tecla ${i+1}</small></button>`).join('');
+$('padCmds').innerHTML=PAD_CMDS.map(([c,l],i)=>`<button type="button" data-cmd="${c}"><span class="pc-l">${l}</span><kbd aria-label="tecla ${i+1}">${i+1}</kbd></button>`).join('');
 const ME='voce_local';
 function myName(){return($('padName').value||'Você').trim().slice(0,20)||'Você'}
 $('btnJoin').onclick=()=>{const r=racers.get(ME);if(r||pending.has(ME)){handleChat(ME,myName(),null,'!sair');$('btnJoin').textContent='ENTRAR'}else{join(ME,myName(),'#29e3ff',false);$('btnJoin').textContent='SAIR'}};
