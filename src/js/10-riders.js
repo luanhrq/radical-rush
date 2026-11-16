@@ -262,6 +262,16 @@ function poseRider(r,t,standing){
   else if(standing){crouch(.08);m.armL.rotation.z=.25+br;m.armR.rotation.z=-.25-br;m.foreL.rotation.x=m.foreR.rotation.x=-.2}
   else{P.position.set(0,1,0);P.rotation.x=Math.PI/2;const f=Math.sin(t*2.2+r.phase)*.05;m.armL.rotation.z=1.42+f;m.armR.rotation.z=-1.42-f;m.armL.rotation.x=m.armR.rotation.x=.1;m.legL.rotation.z=.15;m.legR.rotation.z=-.15;m.neck.rotation.x=-1.05}
   Sp.rotation.x+=br;
+  // corpo durante a queda
+  if(r.fall){const F=r.fall,L=F.lie||0,w=Math.sin(t*7+r.phase),w2=Math.cos(t*5.3+r.phase),k=F.k,mx=(o,x,y,z,q)=>{o.rotation.x=lerp(o.rotation.x,x,q);o.rotation.y=lerp(o.rotation.y,y,q);o.rotation.z=lerp(o.rotation.z,z,q)};
+    if(k==='snow'||k==='ground'||k==='side'||k==='sail'){const q=L;mx(P,0,k==='snow'||k==='ground'?0:P.rotation.y,0,q);if(k==='snow'||k==='ground')P.position.y=lerp(P.position.y,.93,q);
+      mx(m.armL,-2.5+w*.25*(1-L),0,.55,q);mx(m.armR,-2.1-w*.25*(1-L),0,-.75,q);mx(m.foreL,-.5,0,0,q);mx(m.foreR,-.95,0,0,q);
+      mx(m.legL,.2+w*.15*(1-L),0,.12,q);mx(m.legR,-.4-w*.15*(1-L),0,-.16,q);mx(m.shinL,.45,0,0,q);mx(m.shinR,1.0,0,0,q);mx(Sp,-.12,0,0,q);mx(m.neck,.4,0,.2,q)}
+    else if(k==='air'){const q=Math.sin(Math.PI*F.p);mx(m.armL,-.6+w*.6,0,1.1+w2*.4,q);mx(m.armR,-.6-w*.6,0,-1.1+w2*.4,q);mx(m.legL,.3+w*.5,0,.35,q);mx(m.legR,.3-w*.5,0,-.35,q);mx(m.shinL,.9+w2*.4,0,0,q);mx(m.shinR,.9-w2*.4,0,0,q)}
+    else if(k==='canopy'){const q=Math.sin(Math.PI*F.p);mx(m.legL,-.3+w*.6,0,.1,q);mx(m.legR,-.3-w*.6,0,-.1,q);mx(m.armL,-2.7,0,.3,q);mx(m.armR,-2.7,0,-.3,q)}
+    else if(k==='swim'){const q=Math.sin(Math.PI*F.p);mx(m.legL,-1.3,0,.1,q);mx(m.legR,-1.3,0,-.1,q);mx(m.shinL,1.7,0,0,q);mx(m.shinR,1.7,0,0,q);mx(Sp,.6,0,0,q);mx(m.armL,-1.1,0,.3,q);mx(m.armR,-1.1,0,-.3,q);mx(m.foreL,-1.8,0,0,q);mx(m.foreR,-1.8,0,0,q)}
+    else if(k==='climb'){const q=1-F.p*F.p;mx(m.armR,-.25+w*.3,0,-.35,q);mx(m.foreR,-.3,0,0,q);mx(m.legL,.1+w*.25,0,.1,q);mx(m.legR,.1-w*.25,0,-.1,q);mx(m.shinL,.35,0,0,q);mx(m.shinR,.35,0,0,q)}
+    else if(k==='boat'){const q=Math.sin(Math.PI*F.p);mx(Sp,-.8,0,0,q);mx(m.armL,-2.2,0,.5,q);mx(m.armR,-2.2,0,-.5,q);mx(m.neck,.35,0,0,q)}}
   // comemoração ao cruzar a chegada
   if(r.finished&&!r.out&&G.raceT-r.time<5&&(mod==='ski'||mod==='snowboard'||mod==='skate'||mod==='bike'||(mod==='paraquedas'&&r.grounded)||(mod==='nado'&&(r.wade||0)>.5))){const pu=Math.sin(t*9+r.phase)*.2;
     m.armR.rotation.set(-2.7+pu,0,-.3);m.foreR.rotation.x=-.35;if(mod!=='bike'){m.armL.rotation.set(-2.7-pu,0,.3);m.foreL.rotation.x=-.35}Sp.rotation.x-=.15;m.neck.rotation.x=.15}

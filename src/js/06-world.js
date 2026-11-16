@@ -270,11 +270,11 @@ diffuseColor.rgb*=alb;diffuseColor.a*=edge;
 vec3 tN=normalize(vec3(0.,1.,0.)+(mix(saT.xyz,rT.xyz,.5)*2.-1.).xzy*vec3(.8,0.,.8)*(1.-rut*.6));
 float tRough=.92-rut*.25;vec3 tE=vec3(0.);`;
     else if(kind==='river')body=`
-float ex=vR.x;vec2 uvA=vec2(ex*37.,vR.y)*.17+vec2(0.,-uTime*.32);vec2 uvB=vec2(ex*37.,vR.y)*.43+vec2(uTime*.04,-uTime*.55);
-vec3 na=texture2D(tWaves,uvA).xyz*2.-1.,nb=texture2D(tWaves,uvB).xyz*2.-1.;
-vec3 tN=normalize(vec3(0.,1.,0.)+vec3(na.x+nb.x*.7,0.,na.y+nb.y*.7)*.11);
+float ex=vR.x;float rdst=length(cameraPosition-vWP);float rlim=mix(10.,4.,smoothstep(18.,170.,rdst));vec2 rq=vec2(ex*37.,vR.y-uTime*.9)*.55;float rt=uTime*1.05;const float RE=.08;
+float r0=rr_wav(rq,rt,rlim),rx=rr_wav(rq+vec2(RE,0.),rt,rlim),ry=rr_wav(rq+vec2(0.,RE),rt,rlim);vec2 rdn=vec2(r0-rx,r0-ry)/RE;
+vec3 tN=normalize(vec3(0.,1.,0.)+(vSide*rdn.x+cross(vec3(0.,1.,0.),vSide)*rdn.y)*.15*mix(1.,.4,smoothstep(30.,220.,rdst)));
 float sh=min(ex,1.-ex);float bank=1.-smoothstep(.0,.09,sh);
-diffuseColor.rgb=mix(vec3(.016,.075,.07),vec3(.06,.13,.09),bank);
+diffuseColor.rgb=mix(vec3(.012,.06,.058),vec3(.07,.14,.09),bank)*(.85+.4*r0);
 float fo=smoothstep(.58,.92,rr_vnoise(vec2(ex*70.,vR.y*.35-uTime*1.4)))*bank*.55+(1.-smoothstep(.0,.012,sh))*.5;
 diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.78,.83,.8),clamp(fo,0.,1.));diffuseColor.a=1.;
 float tRough=mix(.07,.5,clamp(fo,0.,1.));vec3 tE=vec3(0.);`;
@@ -307,7 +307,7 @@ vec3 tN=normalize(vec3(0.,1.,0.)+((a.xyz+b.xyz)-1.).xzy*vec3(.35,0.,.35));
 float foam=smoothstep(.55,.95,rr_vnoise(vec2(ex*30.,vR.y*.15-uTime*3.)))*(1.-smoothstep(.0,.25,min(ex,1.-ex)))+ (1.-smoothstep(.0,.06,min(ex,1.-ex)))*.8;
 diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.85,.92,.95),clamp(foam,0.,1.));diffuseColor.a=mix(.82,1.,foam)*edge;
 float tRough=mix(.04,.6,clamp(foam,0.,1.));vec3 tE=vec3(0.);`;
-    sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nuniform sampler2D tRock,tGrass,tSnow,tSand,tRockA,tGrassA,tSnowA,tSandA,tWaves;varying vec2 vR;varying vec3 vSide;varying vec3 vWP;')
+    sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nuniform sampler2D tRock,tGrass,tSnow,tSand,tRockA,tGrassA,tSnowA,tSandA,tWaves;varying vec2 vR;varying vec3 vSide;varying vec3 vWP;'+(kind==='river'?GLSL_WAVES(10):''))
       .replace('#include <map_fragment>',body)
       .replace('#include <roughnessmap_fragment>','float roughnessFactor=tRough;')
       .replace('#include <normal_fragment_maps>','normal=normalize((viewMatrix*vec4(tN,0.)).xyz);')

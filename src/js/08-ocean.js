@@ -1,5 +1,5 @@
 let ocean=null;
-const WAVES=[[1,.2,52,.34,.5],[.8,.6,33,.24,.55],[.95,-.3,21,.15,.55],[.6,.8,13,.09,.5],[1,-.6,8,.05,.45],[.3,1,4.8,.03,.4],[.9,.45,3,.017,.35],[-.2,1,1.9,.01,.3]];
+const WAVES=[[1,.2,52,.5,.5],[.8,.6,33,.34,.55],[.95,-.3,21,.2,.55],[.6,.8,13,.11,.5],[1,-.6,8,.05,.45],[.3,1,4.8,.03,.4],[.9,.45,3,.017,.35],[-.2,1,1.9,.01,.3]];
 function makeOcean(){
   const RN=150,AN=240,P=[],I=[];P.push(0,0,0);
   for(let k=1;k<=RN;k++){const r=.35*(Math.pow(1.066,k)-1);for(let a=0;a<AN;a++){const t=a/AN*Math.PI*2;P.push(Math.cos(t)*r,0,Math.sin(t)*r)}}
@@ -15,14 +15,16 @@ function makeOcean(){
       for(int i=0;i<8;i++){vec4 w=uW[i];float k=w.z,A=w.w*fade,om=sqrt(9.8*k);float f=k*dot(w.xy,wp.xz)-om*uTime+float(i)*1.7;float Q=uQ[i]/(k*w.w*8.+1e-4);
         float c=cos(f),s=sin(f);disp.xz+=Q*A*w.xy*c;disp.y+=A*s;nx+=w.x*k*A*c;nz+=w.y*k*A*c;ny+=Q*k*A*s;}
       vWP=wp+disp;vN=vec3(-nx,1.-ny,-nz);vJ=1.-ny;vH=disp.y;gl_Position=projectionMatrix*viewMatrix*vec4(vWP,1.);}`,
-    fragmentShader:`${GLSL_SKY}
+    fragmentShader:`${GLSL_SKY}${GLSL_WAVES(QL.ao?22:QL.rays?16:QL.post?10:6)}
     uniform sampler2D tWaves;uniform sampler2D uHF;uniform vec4 uHFInfo;uniform float uSunI;varying vec3 vWP;varying vec3 vN;varying float vJ;varying float vH;
     float hfH(vec2 xz){vec2 g=(xz-uHFInfo.xy)/uHFInfo.z;return texture2D(uHF,(g+.5)/uHFInfo.w).r;}
     void main(){vec3 toC=cameraPosition-vWP;float dist=length(toC);vec3 V=toC/dist;float df=exp(-dist*.006);
       vec3 n=normalize(vN);
-      vec2 u1=vWP.xz*.045+uTime*vec2(.018,.011),u2=vWP.xz*.13-uTime*vec2(.015,.027),u3=vWP.xz*.37+uTime*vec2(-.03,.02);
-      vec2 dn=(texture2D(tWaves,u1).xy*2.-1.)+(texture2D(tWaves,u2).xy*2.-1.)*.8+(texture2D(tWaves,u3).xy*2.-1.)*.5*df;
-      n=normalize(n+vec3(dn.x,0.,dn.y)*mix(.1,.42,df));
+      float lim=mix(float(RR_WN),5.,smoothstep(25.,420.,dist));vec2 wq=vWP.xz*.3;float wt=uTime*1.25;const float WE=.07;
+      float h0=rr_wav(wq,wt,lim),hx=rr_wav(wq+vec2(WE,0.),wt,lim),hz=rr_wav(wq+vec2(0.,WE),wt,lim);
+      vec2 dn=vec2(h0-hx,h0-hz)/WE;
+      n=normalize(n+vec3(dn.x,0.,dn.y)*mix(.14,.5,df));
+      n=normalize(n+vec3((texture2D(tWaves,vWP.xz*.37+uTime*vec2(-.03,.02)).xy*2.-1.),0.).xzy*.05*df);
       float depth=uWater.x-hfH(vWP.xz);
       vec3 col;
       if(!gl_FrontFacing||cameraPosition.y<vWP.y){
@@ -36,11 +38,11 @@ function makeOcean(){
         float NdV=max(dot(n,V),1e-3);float F=.02+.98*pow(1.-NdV,5.);
         vec3 R=reflect(-V,n);R.y=abs(R.y)+.01;R=normalize(R);vec3 refl=rr_sky(R);
         float rough=mix(.11,.035,df);vec3 H=normalize(V+uSunDir);float NdH=max(dot(n,H),0.);float a2=rough*rough;float dd=NdH*NdH*(a2-1.)+1.;float D=a2/(3.1416*dd*dd);
-        float NdL=max(dot(n,uSunDir),0.);vec3 spec=uSunCol*uSunI*D*F*NdL*.3;
+        float NdL=max(dot(n,uSunDir),0.);vec3 spec=uSunCol*uSunI*D*F*NdL*.45;
         float sh=smoothstep(0.,8.,depth);vec3 amb=uSkyHor*.55+uSunCol*uSunI*.05*max(uSunDir.y,0.);
         vec3 body=mix(vec3(.03,.22,.21),vec3(.004,.028,.04),sh)*amb*2.3;
         float back=pow(max(dot(normalize(vec3(-V.x,0.,-V.z)),normalize(vec3(uSunDir.x,.001,uSunDir.z))),0.),3.);
-        body+=vec3(.02,.17,.12)*uSunCol*max(vH,0.)*(.4+3.*back)*uSunI*.18;
+        body+=vec3(.02,.17,.12)*uSunCol*max(vH+(h0-.42)*.7,0.)*(.4+3.*back)*uSunI*.18;
         col=mix(body,refl,F)+spec;
         float fn=rr_fbm(vWP.xz*.35+uTime*.15);
         float foam=smoothstep(.8,1.08,(1.-vJ)*2.2+fn*.45)*.5;
@@ -58,21 +60,46 @@ function makeOcean(){
 // ---------------- vida marinha: cardumes, tubarões, algas, corais ----------------
 const LIFE={sharks:[],schools:[],fish:null,idx:[],mantas:[],vents:[]};
 function isUnderSwim(r){if(!W.water||r.mod!=='nado')return false;trackAt(r.s,CTA);return CTA.pos.y<W.water.level-3}
-function fishGeo(){const g=new THREE.LatheGeometry([[0,-.25],[.05,-.2],[.09,-.05],[.1,.05],[.075,.17],[.03,.24],[0,.26]].map(([r,y])=>new THREE.Vector2(Math.max(r,.001),y)),10);g.rotateX(Math.PI/2);g.scale(.42,1,1);
-  const tail=new THREE.BufferGeometry();tail.setAttribute('position',new THREE.Float32BufferAttribute([0,0,-.22,0,.13,-.38,0,-.13,-.38],3));tail.computeVertexNormals();
-  const a=g.toNonIndexed();a.deleteAttribute('uv');return mergeGeometries([a,tail])}
-function sharkGeo(){
-  const prof=[[0,2.05],[.16,1.85],[.32,1.5],[.46,.95],[.5,.45],[.47,-.1],[.38,-.7],[.24,-1.25],[.12,-1.7],[.07,-1.95],[0,-2]];
-  const b=new THREE.LatheGeometry(prof.map(([r,y])=>new THREE.Vector2(Math.max(r,.001),y)),24);b.rotateX(Math.PI/2);b.scale(.82,.92,1);
-  const tri=(pts)=>{const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(pts,3));g.computeVertexNormals();return g};
-  const fin=(a,b2,c,th=.03)=>{const P=[];const o=[[th,0,0],[-th,0,0]];for(const[dx]of o)P.push(a[0]+dx,a[1],a[2],b2[0]+dx,b2[1],b2[2],c[0]+dx,c[1],c[2]);P.push(a[0]+th,a[1],a[2],b2[0]+th,b2[1],b2[2],b2[0]-th,b2[1],b2[2],a[0]+th,a[1],a[2],b2[0]-th,b2[1],b2[2],a[0]-th,a[1],a[2]);return tri(P)};
-  const parts=[b.toNonIndexed(),fin([0,.38,.55],[0,1.15,-.15],[0,.36,-.45]),fin([0,.05,-1.85],[0,1.05,-2.55],[0,.05,-1.95]),fin([0,.0,-1.85],[0,-.75,-2.35],[0,.0,-1.95]),
-    tri([.3,-.12,.55,1.25,-.5,-.1,.32,-.18,-.05, .3,-.12,.55,.32,-.18,-.05,1.25,-.5,-.1]),tri([-.3,-.12,.55,-.32,-.18,-.05,-1.25,-.5,-.1, -.3,-.12,.55,-1.25,-.5,-.1,-.32,-.18,-.05])];
-  parts.forEach(g=>{if(g.attributes.uv)g.deleteAttribute('uv')});
-  const g=mergeGeometries(parts);const p=g.attributes.position,n=p.count,c=new Float32Array(n*3);
-  for(let i=0;i<n;i++){const y=p.getY(i),k=smooth(-.25,.12,y);c[i*3]=lerp(.86,.22,k);c[i*3+1]=lerp(.87,.27,k);c[i*3+2]=lerp(.88,.33,k)}g.setAttribute('color',new THREE.BufferAttribute(c,3));
-  const eye=new THREE.SphereGeometry(.05,8,6);const e1=eye.clone().translate(.27,.12,1.35),e2=eye.clone().translate(-.27,.12,1.35);[e1,e2].forEach(e=>{e.deleteAttribute('uv');const cc=new Float32Array(e.attributes.position.count*3).fill(.01);e.setAttribute('color',new THREE.BufferAttribute(cc,3))});
-  return mergeGeometries([g,e1.toNonIndexed(),e2.toNonIndexed()])}
+// cor por vértice + normais, para juntar as partes de um bicho num só mesh
+function creaturePart(g,f){if(g.index){g.computeVertexNormals();g=g.toNonIndexed()}else if(!g.attributes.normal)g.computeVertexNormals();if(g.attributes.uv)g.deleteAttribute('uv');const p=g.attributes.position,c=new Float32Array(p.count*3);for(let i=0;i<p.count;i++){const v=f(p.getX(i),p.getY(i),p.getZ(i));c[i*3]=v[0];c[i*3+1]=v[1];c[i*3+2]=v[2]}g.setAttribute('color',new THREE.BufferAttribute(c,3));return g}
+// nadadeira: contorno 2D (u para a frente, v para fora) extrudado e posto na base (X=u, Y=v)
+function finGeo(pts,ux,vy,th=.035){const sh=new THREE.Shape();sh.moveTo(pts[0][0],pts[0][1]);for(let k=1;k<pts.length;k++){const p=pts[k];if(p.length===4)sh.quadraticCurveTo(p[0],p[1],p[2],p[3]);else sh.lineTo(p[0],p[1])}sh.closePath();
+  const g=new THREE.ExtrudeGeometry(sh,{depth:th,bevelEnabled:false,curveSegments:8});g.translate(0,0,-th/2);const X=ux.clone().normalize(),Y=vy.clone().normalize(),Z=new V3().crossVectors(X,Y);g.applyMatrix4(new THREE.Matrix4().makeBasis(X,Y,Z));return g}
+function fishGeo(){const parts=[];
+  const body=new THREE.LatheGeometry([[0,-.24],[.028,-.215],[.058,-.14],[.094,-.03],[.105,.06],[.09,.15],[.055,.22],[0,.26]].map(([r,y])=>new THREE.Vector2(Math.max(r,.001),y)),12);body.rotateX(Math.PI/2);body.scale(.4,1,1);
+  parts.push(creaturePart(body,(x,y,z)=>{const k=smooth(-.035,.05,y),st=1-smooth(0,.02,Math.abs(y-.012));const b=lerp(1.3,.5,k)+st*.3;return[b,b,b*(1+st*.12)]}));
+  const F=new V3(0,0,1),U=new V3(0,1,0),fin=(pts,ux,vy,c,o)=>{const g=finGeo(pts,ux,vy,.006);g.translate(o[0],o[1],o[2]);parts.push(creaturePart(g,()=>c))};
+  fin([[0,0],[-.2,.16],[-.13,.02,-.16,0],[-.2,-.16]],F,U,[.55,.55,.6],[0,0,-.2]);            // cauda bifurcada
+  fin([[.1,0],[.02,.11,-.1,.07],[-.08,0]],F,U,[.5,.5,.55],[0,.088,.04]);                       // dorsal
+  fin([[.04,0],[-.02,-.07,-.09,-.05],[-.08,0]],F,U,[.6,.6,.62],[0,-.082,-.02]);                // anal
+  for(const sx of[-1,1]){fin([[.03,0],[-.06,.09],[-.05,.01]],F,new V3(sx*.8,-.6,0),[.72,.72,.74],[sx*.036,-.02,.09]);
+    parts.push(creaturePart(new THREE.SphereGeometry(.014,6,4).translate(sx*.033,.03,.175),()=>[.02,.02,.02]))}
+  return mergeGeometries(parts)}
+function sharkGeo(){const parts=[];
+  const prof=[[0,2.1],[.1,2.0],[.22,1.78],[.36,1.4],[.47,.95],[.52,.45],[.5,-.05],[.43,-.6],[.32,-1.1],[.2,-1.55],[.11,-1.9],[.075,-2.1],[0,-2.14]];
+  const b=new THREE.LatheGeometry(prof.map(([r,y])=>new THREE.Vector2(Math.max(r,.001),y)),28);b.rotateX(Math.PI/2);b.scale(.8,.9,1);
+  {const p=b.attributes.position;for(let i=0;i<p.count;i++){const y=p.getY(i),z=p.getZ(i);if(y<0)p.setY(i,y*(.82+.1*smooth(1.2,2.1,z)));if(z>1.5)p.setY(i,p.getY(i)-.05*smooth(1.5,2.1,z))}}
+  const skin=(x,y,z)=>{const k=smooth(-.2,.06,y+Math.sin(z*3.1)*.03),tip=0;return[lerp(.9,.2,k),lerp(.91,.25,k),lerp(.92,.31,k)]};
+  parts.push(creaturePart(b,skin));
+  const F=new V3(0,0,1),U=new V3(0,1,0),dk=[.15,.19,.24],fin=(pts,ux,vy,o,c=dk,th=.05)=>{const g=finGeo(pts,ux,vy,th);g.translate(o[0],o[1],o[2]);parts.push(creaturePart(g,(x,y,z)=>c))};
+  fin([[.45,0],[.05,.5,-.3,.92],[-.36,.5,-.5,0]],F,U,[0,.4,.45]);                                   // dorsal
+  fin([[.18,0],[.02,.14,-.12,.24],[-.14,.1,-.2,0]],F,U,[0,.2,-1.15]);                                // 2ª dorsal
+  fin([[.15,0],[-.25,.5,-.75,1.2],[-.5,.5,-.32,.02],[-.5,-.35,-.6,-.7],[-.2,-.25,.05,0]],F,U,[0,0,-1.95]);   // cauda em crescente
+  fin([[.12,0],[.0,-.1,-.12,-.2],[-.12,-.08,-.16,0]],F,U,[0,-.2,-1.2]);                              // anal
+  for(const sx of[-1,1]){fin([[.3,0],[-.05,.45,-.5,1.05],[-.42,.45,-.34,0]],F,new V3(sx*.9,-.42,0),[sx*.3,-.14,.7],[.2,.24,.3]);   // peitorais
+    fin([[.14,0],[0,.14,-.14,.26],[-.14,.1,-.18,0]],F,new V3(sx*.8,-.6,0),[sx*.2,-.18,-.75],[.22,.26,.32],.035);                  // pélvicas
+    for(let k=0;k<5;k++)parts.push(creaturePart(new THREE.BoxGeometry(.012,.2-k*.012,.02).rotateZ(sx*.12).translate(sx*(.395-k*.004),.0,1.08-k*.075),()=>[.05,.06,.08]));  // fendas branquiais
+    parts.push(creaturePart(new THREE.SphereGeometry(.04,8,6).translate(sx*.215,.1,1.62),()=>[.01,.01,.012]))}
+  parts.push(creaturePart(new THREE.TorusGeometry(.17,.012,4,12,Math.PI).rotateX(Math.PI/2).rotateY(Math.PI).translate(0,-.2,1.62),()=>[.04,.03,.04]));  // boca
+  return mergeGeometries(parts)}
+function mantaGeo(){const parts=[];const NU=28,NV=10,HS=2.7,P=[],I=[];
+  const pt=(u,v,top)=>{const au=Math.abs(u),c=2.15*(1-Math.pow(au,1.7))+.06,zle=.95-au*au*1.25,z=zle-v*c;const th=.3*Math.pow(1-au,1.4)*Math.sin(Math.PI*Math.pow(v,.55));return[u*HS,(top?th:-th*.45)+au*au*.12,z]};
+  for(const top of[1,0]){const o=P.length/3;for(let i=0;i<=NU;i++)for(let j=0;j<=NV;j++)P.push(...pt(i/NU*2-1,j/NV,top));for(let i=0;i<NU;i++)for(let j=0;j<NV;j++){const a=o+i*(NV+1)+j,b2=a+1,c=a+NV+1,d=c+1;if(top)I.push(a,b2,c,b2,d,c);else I.push(a,c,b2,b2,c,d)}}
+  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(P,3));g.setIndex(I);
+  parts.push(creaturePart(g,(x,y,z)=>{const top=y>Math.abs(x/HS)*Math.abs(x/HS)*.12-.001;if(!top)return[.86,.88,.9];const sh=smooth(.5,1.4,Math.abs(x))*(1-smooth(1.4,2.2,Math.abs(x)))*smooth(-.2,.5,z)*.22;return[.07+sh,.09+sh,.13+sh]}));
+  for(const sx of[-1,1])parts.push(creaturePart(new THREE.CapsuleGeometry(.075,.42,4,8).rotateX(Math.PI/2-.35).rotateY(sx*.25).translate(sx*.36,-.06,1.12),()=>[.08,.1,.14]));   // lobos cefálicos
+  parts.push(creaturePart(new THREE.CylinderGeometry(.035,.004,2.8,6).rotateX(-Math.PI/2).translate(0,.02,-2.5),()=>[.06,.07,.1]));   // cauda
+  return mergeGeometries(parts)}
 function swayMat(opts,amp,key){const m=new THREE.MeshStandardMaterial(opts);m.onBeforeCompile=sh=>{Object.assign(sh.uniforms,FOGU);sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nuniform float uTime;').replace('#include <begin_vertex>',`#include <begin_vertex>
 #ifdef USE_INSTANCING
 float ph=instanceMatrix[3].x*.7+instanceMatrix[3].z*.3;
@@ -89,18 +116,18 @@ function buildSeaLife(){
   // floresta de kelp alta com folhas
   {const kt=cTex(64,256,(x,w,h)=>{x.clearRect(0,0,w,h);const g=x.createLinearGradient(0,h,0,0);g.addColorStop(0,'#1f3a10');g.addColorStop(.55,'#456a18');g.addColorStop(1,'#a3bd3c');x.fillStyle=g;x.beginPath();x.moveTo(32,h);for(let y=h;y>=0;y-=6){const t=1-y/h,wd=Math.pow(Math.sin(t*Math.PI),.7)*27+2;x.lineTo(32+wd+Math.sin(y*.45)*4+(y%18<6?3:0),y)}for(let y=0;y<=h;y+=6){const t=1-y/h,wd=Math.pow(Math.sin(t*Math.PI),.7)*27+2;x.lineTo(32-wd+Math.sin(y*.45+1)*4-(y%18<6?3:0),y)}x.fill();x.strokeStyle='rgba(30,45,10,.6)';x.lineWidth=2;x.beginPath();x.moveTo(32,h);x.lineTo(32,4);x.stroke()});
     const P=[],N=[],U=[],C=[],Ix=[];const R=mulberry(77);const quad=(a,b,c,d,n,uv,col)=>{const o=P.length/3;[a,b,c,d].forEach((v,k)=>{P.push(v.x,v.y,v.z);N.push(n[k].x,n[k].y,n[k].z);U.push(uv[k][0],uv[k][1]);C.push(col[k],col[k],col[k])});Ix.push(o,o+1,o+2,o,o+2,o+3)};
-    for(let k=0;k<96;k++){const y=.4+k/96*19.8,ang=k*2.399+R()*.6,L=lerp(3.4,1.8,k/96)*(.8+R()*.4),Wd=.95*(.8+R()*.4);const dir=new V3(Math.cos(ang),.25+R()*.6,Math.sin(ang)).normalize(),sd=new V3(-Math.sin(ang),0,Math.cos(ang));const o=new V3(0,y,0),tp=o.clone().addScaledVector(dir,L);
-      const a=o.clone().addScaledVector(sd,-Wd*.5),b=o.clone().addScaledVector(sd,Wd*.5),c=tp.clone().addScaledVector(sd,Wd*.5),d=tp.clone().addScaledVector(sd,-Wd*.5);const nn=[a,b,c,d].map(v=>new V3(v.x,.6,v.z).normalize());const ao=.18+.62*k/96;
+    for(let k=0;k<150;k++){const y=.4+k/150*19.8,ang=k*2.399+R()*.6,L=lerp(2.5,1.3,k/150)*(.8+R()*.4),Wd=.46*(.8+R()*.4);const dir=new V3(Math.cos(ang),.25+R()*.6,Math.sin(ang)).normalize(),sd=new V3(-Math.sin(ang),0,Math.cos(ang));const o=new V3(0,y,0),tp=o.clone().addScaledVector(dir,L);
+      const a=o.clone().addScaledVector(sd,-Wd*.5),b=o.clone().addScaledVector(sd,Wd*.5),c=tp.clone().addScaledVector(sd,Wd*.5),d=tp.clone().addScaledVector(sd,-Wd*.5);const nn=[a,b,c,d].map(v=>new V3(v.x,.6,v.z).normalize());const ao=.18+.62*k/150;
       quad(a,b,c,d,nn,[[0,0],[1,0],[1,1],[0,1]],[ao,ao,1,1])}
     for(let k=0;k<6;k++){const a0=k/6*Math.PI*2,a1=(k+1)/6*Math.PI*2,r=.07;const v=[new V3(Math.cos(a0)*r,0,Math.sin(a0)*r),new V3(Math.cos(a1)*r,0,Math.sin(a1)*r),new V3(Math.cos(a1)*r,20,Math.sin(a1)*r),new V3(Math.cos(a0)*r,20,Math.sin(a0)*r)];const nn=v.map(p=>new V3(p.x,0,p.z).normalize());quad(v[0],v[1],v[2],v[3],nn,[[.48,0],[.52,0],[.52,.02],[.48,.02]],[.6,.6,.8,.8])}
     const kg=new THREE.BufferGeometry();kg.setAttribute('position',new THREE.Float32BufferAttribute(P,3));kg.setAttribute('normal',new THREE.Float32BufferAttribute(N,3));kg.setAttribute('uv',new THREE.Float32BufferAttribute(U,2));kg.setAttribute('color',new THREE.Float32BufferAttribute(C,3));kg.setIndex(Ix);
     const km=new THREE.MeshStandardMaterial({map:kt,alphaTest:.5,alphaToCoverage:QL.msaa>0,side:THREE.DoubleSide,vertexColors:true,roughness:.7});
     km.onBeforeCompile=sh=>{Object.assign(sh.uniforms,FOGU);sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nuniform float uTime;').replace('#include <begin_vertex>',`#include <begin_vertex>
 float ph=instanceMatrix[3].x*.21+instanceMatrix[3].z*.17;float hy=position.y/20.;transformed.x+=sin(uTime*.55+ph+position.y*.12)*1.6*hy*hy;transformed.z+=cos(uTime*.45+ph*1.3)*1.1*hy*hy;`);
-      sh.fragmentShader=sh.fragmentShader.replace('#include <normal_fragment_begin>','#include <normal_fragment_begin>\nnormal=normalize(vNormal);').replace('#include <emissivemap_fragment>','#include <emissivemap_fragment>\ntotalEmissiveRadiance+=diffuseColor.rgb*vec3(.0,.02,.008);')};
+      sh.fragmentShader=sh.fragmentShader.replace('#include <normal_fragment_begin>','#include <normal_fragment_begin>\nnormal=normalize(vNormal);').replace('#include <emissivemap_fragment>','#include <emissivemap_fragment>\ntotalEmissiveRadiance+=diffuseColor.rgb*vec3(.03,.07,.02);')};
     km.customProgramCacheKey=()=>'kelp';
     const spots=[];const groves=[];for(let g=0;g<22;g++){const i=pick(I),s=S[i];const lat=(Math.random()<.5?-1:1)*rand(8,34);groves.push([s.p.x+s.sd.x*lat,s.p.z+s.sd.z*lat])}
-    for(let k=0;k<Math.round(340*QL.trees+60);k++){const gv=pick(groves);const i=pick(I),s=S[i];const lat=0;const x=gv[0]+rand(-9,9),z=gv[1]+rand(-9,9);nearest(x,z);if(_nd<6.5)continue;const y=gridH(x,z);const room=lv-y-1;if(room<6)continue;spots.push([x,y,z,Math.min(1.25,room/20)*rand(.75,1)])}
+    for(let k=0;k<Math.round(480*QL.trees+80);k++){const gv=pick(groves);const i=pick(I),s=S[i];const lat=0;const x=gv[0]+rand(-9,9),z=gv[1]+rand(-9,9);nearest(x,z);if(_nd<6.5)continue;const y=gridH(x,z);const room=lv-y-1;if(room<6)continue;spots.push([x,y,z,Math.min(1.25,room/20)*rand(.75,1)])}
     const kim=new THREE.InstancedMesh(kg,km,spots.length);spots.forEach(([x,y,z,h],k)=>{mt.compose(pp.set(x,y-.2,z),q.setFromEuler(e.set(0,rand(0,6.3),0)),sc.set(h,h,h));kim.setMatrixAt(k,mt);kim.setColorAt(k,col.setRGB(rand(.8,1.1),rand(.85,1.1),rand(.7,1)))});
     kim.castShadow=true;W.group.add(kim);
     // brilhos dourados/verdes na floresta
@@ -150,14 +177,14 @@ float ph=instanceMatrix[3].x*.21+instanceMatrix[3].z*.17;float hy=position.y/20.
     for(let k=0;k<70;k++){const i=pick(I),s=S[i];const lat=(Math.random()<.5?-1:1)*rand(5.5,26);const x=s.p.x+s.sd.x*lat,z=s.p.z+s.sd.z*lat,y=gridH(x,z);if(y>lv-4)continue;const sz=rand(.8,2.2);mt.compose(pp.set(x,y-.1,z),q.setFromEuler(e.set(rand(-.15,.15),rand(0,6.3),rand(-.15,.15))),sc.set(sz,sz*rand(.8,1.4),sz));bim.setMatrixAt(bn,mt);bim.setColorAt(bn,col.setHSL(pick([.06,.08,.1,.78,.95]),.55,.42));bn++}
     bim.count=bn;bim.castShadow=true;W.group.add(bim);
     // arraias planando acima do túnel
-    const mg=new THREE.PlaneGeometry(5.2,2.6,16,6);mg.rotateX(-Math.PI/2);{const pa=mg.attributes.position,cc=new Float32Array(pa.count*3);for(let i=0;i<pa.count;i++){const x=pa.getX(i),z=pa.getZ(i);const wdt=2.6*(1-Math.abs(z+(.25-Math.abs(x)*.18))/1.3);if(Math.abs(x)>wdt){pa.setX(i,Math.sign(x)*Math.max(wdt,.05))}pa.setY(i,Math.max(0,.22-Math.abs(pa.getX(i))*.08)*(1-Math.abs(z)/1.4));cc.set([.05,.07,.1],i*3)}mg.computeVertexNormals();mg.setAttribute('color',new THREE.BufferAttribute(cc,3))}
-    const mm=swayMat({vertexColors:true,roughness:.5,side:THREE.DoubleSide},'float wx=abs(position.x)/2.6;transformed.y+=sin(uTime*1.5+ph)*1.1*wx*wx;','manta');
+    const mg=mantaGeo();
+    const mm=swayMat({vertexColors:true,roughness:.45,metalness:.05},'float wx=abs(position.x)/2.7;transformed.y+=sin(uTime*1.5+ph-wx*1.3)*1.05*wx*wx;','manta');
     LIFE.mantas=[];for(let k=0;k<3;k++){const m=new THREE.Mesh(mg,mm);m.castShadow=true;const i=I[Math.floor((k+.3)/3*I.length)];LIFE.mantas.push({m,c:S[i].p.clone().setY(lv-4.5-k*1.5),r:rand(14,22),a:rand(0,6.3),sp:rand(.12,.2)*(k%2?1:-1)});W.group.add(m)}
     // colunas de bolhas subindo do fundo
     LIFE.vents=[];for(let k=0;k<10;k++){const i=pick(I),s=S[i];const lat=(Math.random()<.5?-1:1)*rand(7,22);const x=s.p.x+s.sd.x*lat,z=s.p.z+s.sd.z*lat;LIFE.vents.push(new V3(x,gridH(x,z),z))}
   }
   // algas baixas
-  const kelpN=220,kelp=new THREE.InstancedMesh(new THREE.PlaneGeometry(.7,1,1,10).translate(0,.5,0),swayMat({color:0xffffff,roughness:.7,side:THREE.DoubleSide},'float hh=position.y;transformed.x+=sin(uTime*1.2+ph+hh*1.6)*.25*hh*hh;transformed.z+=cos(uTime*.9+ph)*.15*hh*hh;','kelp'),kelpN);
+  const kelpN=460,kelp=new THREE.InstancedMesh(new THREE.PlaneGeometry(.26,1,1,10).translate(0,.5,0),swayMat({color:0xffffff,roughness:.7,side:THREE.DoubleSide},'float hh=position.y;transformed.x+=sin(uTime*1.2+ph+hh*1.6)*.25*hh*hh;transformed.z+=cos(uTime*.9+ph)*.15*hh*hh;','kelp'),kelpN);
   let kn=0;for(let k=0;k<kelpN;k++){const i=pick(I),s=S[i];const lat=(rand(0,1)<.5?-1:1)*rand(5.5,28);const x=s.p.x+s.sd.x*lat,z=s.p.z+s.sd.z*lat,y=gridH(x,z);if(y>lv-4)continue;const h=rand(3,Math.min(10,lv-y-1.5));
     mt.compose(pp.set(x,y-.2,z),q.setFromEuler(e.set(0,rand(0,6.3),0)),sc.set(rand(.7,1.3),h,1));kelp.setMatrixAt(kn,mt);kelp.setColorAt(kn,col.setRGB(rand(.12,.3),rand(.25,.42),rand(.05,.12)));kn++}
   kelp.count=kn;W.group.add(kelp);
@@ -167,7 +194,7 @@ float ph=instanceMatrix[3].x*.21+instanceMatrix[3].z*.17;float hy=position.y/20.
     mt.compose(pp.set(x,y,z),q.setFromEuler(e.set(rand(0,3),rand(0,3),rand(0,3))),sc.set(sz*rand(.8,1.6),sz*rand(.8,2.2),sz*rand(.8,1.6)));cor.setMatrixAt(cn,mt);cor.setColorAt(cn,col.setHSL(pick([.97,.03,.08,.8,.55,.13]),.75,.5));cn++}
   cor.count=cn;W.group.add(cor);
   // cardumes
-  const nSch=9,per=QL.grass?64:30,fm=swayMat({color:0x9aa6b0,roughness:.38,metalness:.3},'transformed.x+=sin(uTime*14.+ph*9.)*.06*max(-position.z,0.)*4.;','fish');
+  const nSch=9,per=QL.grass?64:30,fm=swayMat({vertexColors:true,roughness:.32,metalness:.35,side:THREE.DoubleSide},'transformed.x+=sin(uTime*14.+ph*9.-position.z*9.)*.05*(.15+max(.12-position.z,0.)*3.6);','fish');
   const fish=new THREE.InstancedMesh(fishGeo(),fm,nSch*per);fish.frustumCulled=false;W.group.add(fish);LIFE.fish=fish;
   const pal=[[.8,.85,.9],[1,.75,.1],[1,.45,.12],[.25,.55,1],[.9,.9,.4],[.6,.85,.95]];
   for(let k=0;k<nSch;k++){const i=I[Math.floor((k+.5)/nSch*I.length)],s=S[i];const side=k%2?1:-1;const c=pal[k%pal.length];
@@ -176,7 +203,7 @@ float ph=instanceMatrix[3].x*.21+instanceMatrix[3].z*.17;float hy=position.y/20.
     LIFE.schools.push(sch)}
   LIFE.per=per;
   // tubarões
-  const sg=sharkGeo(),sm=swayMat({vertexColors:true,roughness:.42,metalness:.05},'float tl=max(-position.z-.6,0.);transformed.x+=sin(uTime*5.5+ph)*.12*tl*tl;','shark');
+  const sg=sharkGeo(),sm=swayMat({vertexColors:true,roughness:.38,metalness:.08},'float tl=max(1.-position.z,0.);transformed.x+=sin(uTime*4.2+ph-position.z*1.25)*(.03+.028*tl*tl);','shark');
   for(let k=0;k<3;k++){const i=I[Math.floor((k+.5)/3*I.length)],s=S[i];const m=new THREE.Mesh(sg,sm);m.castShadow=true;m.scale.setScalar(1.15);W.group.add(m);
     const side=k%2?1:-1;const anchor=new V3(s.p.x+s.sd.x*side*14,s.p.y-1,s.p.z+s.sd.z*side*14);m.position.copy(anchor);
     LIFE.sharks.push({m,anchor,ang:rand(0,6.3),state:'patrol',t:0,target:null,vel:new V3(),cool:rand(4,9),by:null})}

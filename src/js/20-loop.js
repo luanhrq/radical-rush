@@ -25,8 +25,9 @@ function frame(){
     if(G.timer<=0){session.clear();renderSession();G.round++;G.champ=0;show('champ',false);setLoading(true,'Preparando o novo campeonato…');G.state='building';setTimeout(()=>{enterLobby(false);setLoading(false);feed('🏁 Novo campeonato começando!')},40)}}
   if(G.state==='building')return;
   for(const r of racers.values()){botThink(r,dt);updateRacer(r,dt,t)}
-  G.rank=ranking();G.leaderS=G.rank.length?G.rank.find(r=>!r.finished)?.s||0:0;
-  for(let i=hazards.length-1;i>=0;i--){const h=hazards[i];h.t-=dt;if(h.kind==='water')h.mesh.rotation.y+=dt*.6;if(h.mesh.userData.flash){const f=h.mesh.userData.flash;f.emissiveIntensity=Math.random()<.04?6:Math.max(0,f.emissiveIntensity-dt*10);h.mesh.rotation.y+=dt*.3}
+  G.rank=ranking();
+  {const A=G.rank;for(let i=0;i<A.length;i++){const a=A[i];if(a.finished||a.mod==='remo')continue;for(let j=i+1;j<A.length&&j<i+4;j++){const b=A[j];if(b.finished||a.mod!==b.mod)continue;const ds=Math.abs(a.s-b.s);if(ds>3.4)continue;const dl=(a.lat+(a.cvLat||0))-(b.lat+(b.cvLat||0)),ad=Math.abs(dl);if(ad<1.8){const push=(1.8-ad)*(1-ds/3.4)*2.4*dt*(dl>0||(dl===0&&i%2)?1:-1);a.lat+=push;b.lat-=push}}}}G.leaderS=G.rank.length?G.rank.find(r=>!r.finished)?.s||0:0;
+  for(let i=hazards.length-1;i>=0;i--){const h=hazards[i];h.t-=dt;if(h.kind==='water'){h.mesh.rotation.y+=dt*.25;for(const j of h.mesh.children){const s=1+Math.sin(t*2.6+(j.userData.ph||0))*.13;j.scale.set(s,1/(s*s),s);j.position.y+=Math.cos(t*2.6+(j.userData.ph||0))*dt*.25}}if(h.mesh.userData.flash){const f=h.mesh.userData.flash;f.emissiveIntensity=Math.random()<.04?6:Math.max(0,f.emissiveIntensity-dt*10);h.mesh.rotation.y+=dt*.3}
     if(h.t<=0||h.hit.size>=4){hazGroup.remove(h.mesh);disposeObj(h.mesh);hazards.splice(i,1)}}
   for(let i=missiles.length-1;i>=0;i--){const ms=missiles[i];ms.life-=dt;const tp=_v.copy(ms.t.root.position);tp.y+=1.4;const d=tp.distanceTo(ms.m.position);const sp=(ms.t.v+55)*dt;
     ms.m.lookAt(tp);ms.m.position.lerp(tp,Math.min(1,sp/Math.max(d,.01)));PUFF.emit(ms.m.position.x,ms.m.position.y,ms.m.position.z,rand(-.5,.5),rand(0,1),rand(-.5,.5),.8,.8,.82,1.2,1.2,0,.55,2.4);GLOW.emit(ms.m.position.x,ms.m.position.y,ms.m.position.z,0,0,0,3,1.4,.35,.7,.22,0,1);

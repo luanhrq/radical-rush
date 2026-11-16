@@ -73,7 +73,7 @@ function createRacer(login,name,color,isBot){
   return r;
 }
 function removeRacer(r){disposeRider(r.m);racers.delete(r.login)}
-function resetRacers(){let k=0;for(const r of racers.values()){r.s=START_S-5-Math.floor(k/5)*3.6;r.lat=((k%5)-2)*2.4;r.latT=r.lat;r.v=0;r.finished=false;r.place=0;r.time=0;for(const f in r.fx)r.fx[f]=0;r.lane=k;r.cd={};r.air=null;r.vb=null;r.vaultU=null;r.coins=0;r.out=false;r.latV=0;r.latA=0;r.latVT=0;r.cvA=0;r.landed=false;r.steered=false;r.chuteT=null;r.tdS=null;r.grounded=false;r.hop=0;r.skill=rand(.95,1.05);r.mod='';r.botT=rand(3,7);k++}}
+function resetRacers(){let k=0;for(const r of racers.values()){r.s=START_S-5-Math.floor(k/5)*3.6;r.lat=((k%5)-2)*2.4;r.latT=r.lat;r.v=0;r.finished=false;r.place=0;r.time=0;for(const f in r.fx)r.fx[f]=0;r.lane=k;r.cd={};r.air=null;r.vb=null;r.vaultU=null;r.coins=0;r.out=false;r.latV=0;r.latA=0;r.latVT=0;r.cvA=0;r.fall=null;r.landed=false;r.steered=false;r.chuteT=null;r.tdS=null;r.grounded=false;r.hop=0;r.skill=rand(.95,1.05);r.mod='';r.botT=rand(3,7);k++}}
 const TA={pos:new V3(),tan:new V3(),side:new V3(),mod:'',surface:'',seg:0,lu:0,ground:0,i:0};
 const CTA={pos:new V3(),tan:new V3(),side:new V3(),mod:'',surface:'',seg:0,lu:0,ground:0,i:0};
 function trackAt(s,o){const S=W.S,f=clamp(s/DS,0,S.length-1.0001),i=f|0,t=f-i,a=S[i],b=S[i+1];
@@ -82,6 +82,8 @@ function trackAt(s,o){const S=W.S,f=clamp(s/DS,0,S.length-1.0001),i=f|0,t=f-i,a=
 const _look=new V3(),_v=new V3();
 // curvas em S por modalidade: [amplitude em metros, frequência em rad/s] e quanto o corpo inclina na curva
 const CARVE={snowboard:[1.7,2.0],ski:[1.3,2.6],skate:[.9,1.7],bike:[.45,1.5],windsurf:[1.6,.8],paraquedas:[1.2,.55],wingsuit:[1.2,.7],rocket:[.8,.9],nado:[.3,1.1]},CARVE0=[0,1];
+// tipo de queda por modalidade
+const FALLK={ski:'snow',snowboard:'snow',skate:'side',bike:'side',wingsuit:'air',rocket:'air',escalada:'climb',remo:'boat',windsurf:'sail'};
 const BANKG={snowboard:1.05,ski:.9,skate:.85,bike:.8,wingsuit:1.1,rocket:1.1,paraquedas:.45,windsurf:.5,nado:.6};
 function updateRacer(r,dt,t){
   const e=r.fx;for(const k in e)if(e[k]>0)e[k]=Math.max(0,e[k]-dt);
@@ -90,9 +92,9 @@ function updateRacer(r,dt,t){
   const standing=air&&(TA.lu<.025)&&r.v<8;
   if(TA.mod!==r.mod){const was=r.mod;r.mod=TA.mod;setVehicle(r,r.mod);if(was&&G.state==='race'){burst(r.root.position.clone().setY(r.root.position.y+1.5),30,[1,1,1],9,2,1,0,3);burst(r.root.position.clone().setY(r.root.position.y+1.5),20,[1,.8,.4],8,1,.6,0,0,GLOW);if(!W.segFirst[TA.seg]){W.segFirst[TA.seg]=true;sfx(TA.mod==='nado'?'splash':'whoosh');banner('TROCA!',`${M.icon} ${M.label}`,1.8)}}}
   let target=0;
-  if(G.state==='race'&&!r.finished){target=M.speed*r.skill;if(TA.mod==='paraquedas'&&TA.lu>.4)target*=TA.lu>=W.bounds[TA.seg].td?.3:.45;if(e.boost>0)target*=1.65;if(e.slow>0)target*=.45;if(G.windT>0)target*=1.25;if(G.slowT>0)target*=.8;target*=1+clamp((G.leaderS-r.s)/420,0,.18);if(e.stun>0||e.stuck>0)target=0}
+  if(G.state==='race'&&!r.finished){target=M.speed*r.skill;if(TA.mod==='paraquedas'&&TA.lu>.4)target*=TA.lu>=W.bounds[TA.seg].td?.3:.45;if(e.boost>0)target*=1.65;if(e.slow>0)target*=.45;if(G.windT>0)target*=1.25;if(G.slowT>0)target*=.8;target*=1+clamp((G.leaderS-r.s)/420,0,.18);if(e.stuck>0)target=0;else if(e.stun>0)target=air&&!r.grounded?M.speed*.35:0}
   else if(r.finished)target=Math.max(0,(W.L-8-r.s))*.8;
-  const k=e.stun>0?5:target>r.v?(e.boost>0?3:1.3):2.2;
+  const k=e.stun>0?(air&&!r.grounded?2.5:M.surface==='rock'||M.surface==='water'||M.surface==='rio'?5:1.5):target>r.v?(e.boost>0?3:1.3):2.2;
   r.v+=(target-r.v)*(1-Math.exp(-k*dt));
   if(G.state==='race'||r.finished)r.s=Math.min(r.s+r.v*dt,W.L-6);
   if(G.state==='race'){r.latTimer-=dt;if(r.latTimer<=0){r.latTimer=rand(1.2,3.6);r.latT=rand(-1,1)*M.lat}}
@@ -104,11 +106,23 @@ function updateRacer(r,dt,t){
     r.cvA=lerp(r.cvA||0,CV[0]*on,1-Math.exp(-dt*1.6));r.cvP=(r.cvP==null?r.phase:r.cvP)+dt*CV[1]*(.85+.3*((r.phase*7)%1));
     const sn=Math.sin(r.cvP);r.cvN=CV[0]?sn*r.cvA/CV[0]:0;r.cvLat=r.cvA*sn;const lv=r.latV+r.cvA*Math.cos(r.cvP)*CV[1];
     r.latA=lerp(r.latA||0,dt>0?clamp((lv-(r.latVT||0))/dt,-12,12):0,1-Math.exp(-dt*7));r.latVT=lv}
-  let jump=0;r.m.spin.rotation.set(0,0,0);
+  let jump=0;r.m.spin.rotation.set(0,0,0);r.m.spin.position.y=1;
   const flyish=air||TA.mod==='nado';
   if(e.trick>0){const p=1-e.trick/1.3;if(!flyish)jump=Math.sin(p*Math.PI)*3.6;const a=smooth(.1,.9,p)*Math.PI*2;if(flyish)r.m.spin.rotation.z=a;else if(r.mod==='bike')r.m.spin.rotation.x=-a;else if(r.trickKind)r.m.spin.rotation.x=a;else r.m.spin.rotation.y=a}
   if(r.trickPending&&e.trick<=0){r.trickPending=false;resolveTrick(r)}
-  if(e.stun>0){r.m.spin.rotation.x=t*11;r.m.spin.rotation.z=Math.sin(t*7)*.6;jump=Math.abs(Math.sin(t*6))*.8}
+  // queda em fases: perde o controle → no chão / fora de controle → se recupera
+  if(e.stun>0){const F=r.fall||(r.fall={t:0,sd:Math.random()<.5?-1:1,k:'',lie:0,p:0});F.t+=dt;const p=F.t/(F.t+e.stun),es=x=>smooth(0,1,x),S2=r.m.spin;
+    F.k=TA.mod==='paraquedas'?(r.grounded?'ground':r.chuteOpen?'canopy':'air'):TA.mod==='nado'?((r.wade||0)>.5?'ground':'swim'):(FALLK[TA.mod]||'ground');
+    const a=es(p/.2),g=es((p-.72)/.28),lie=a*(1-g);F.lie=0;F.p=p;
+    if(F.k==='snow'||F.k==='ground'){F.lie=lie;S2.rotation.x=lie*1.42;if(F.k==='snow')S2.rotation.y=F.sd*Math.PI*2*es((p-.08)/.5);S2.position.y=lerp(1,.3,lie);jump=Math.sin(Math.PI*clamp(p/.18,0,1))*.55}
+    else if(F.k==='side'){F.lie=lie;S2.rotation.z=F.sd*lie*1.38;S2.rotation.x=lie*.25;S2.position.y=lerp(1,.42,lie);jump=Math.sin(Math.PI*clamp(p/.18,0,1))*.4}
+    else if(F.k==='sail'){F.lie=lie;S2.rotation.z=F.sd*lie*1.3;S2.position.y=lerp(1,.75,lie)}
+    else if(F.k==='air'){const w=Math.sin(Math.PI*p);S2.rotation.z=F.sd*Math.PI*4*es(p);S2.rotation.x=w*.9;jump=-w*5}
+    else if(F.k==='canopy'){const w=Math.sin(Math.PI*p);S2.rotation.z=Math.sin(F.t*4.5)*.5*w;jump=-w*3}
+    else if(F.k==='swim'){S2.rotation.z=Math.sin(F.t*19)*.22*(1-p);S2.rotation.x=-Math.sin(Math.PI*p)*.5}
+    else if(F.k==='climb'){S2.rotation.z=Math.sin(F.t*5)*.28*(1-p)}
+    else if(F.k==='boat'){S2.rotation.z=Math.sin(F.t*7)*.3*(1-p);S2.rotation.y=F.sd*.45*Math.sin(Math.PI*p)}}
+  else if(r.fall)r.fall=null;
   const gm=hasRule('gravidade')?1.7:1;
   if(r.air){r.air.t+=dt;const k=r.air.t/r.air.dur;if(k>=1)r.air=null;else jump+=Math.sin(Math.PI*k)*r.air.h}
   r.vaultU=null;
@@ -123,6 +137,7 @@ function updateRacer(r,dt,t){
     if(r.chuteOpen){if(r.chuteT==null){r.chuteT=0;r.tdS=null;ch.rotation.set(0,0,0);if(!r.isBot&&G.state==='race')sfx('whoosh',.7)}
       r.chuteT=Math.min(1,r.chuteT+dt*.9);const k=r.chuteT;
       if(!r.grounded){r.tdS=null;ch.visible=r.m.rig.visible=r.m.clines.visible=true;cn.scale.set(.1+.9*smooth(.25,.85,k),.55+.45*smooth(.2,.7,k),.4+.6*smooth(.15,.6,k));r.m.slider.position.y=lerp(-.8,-2.75,smooth(.3,1,k));ch.rotation.y=0;
+        if(r.fall&&r.fall.k==='canopy'){const w=Math.sin(Math.PI*r.fall.p);cn.scale.x*=1-.5*w;cn.scale.z*=1-.25*w;ch.rotation.z+=Math.sin(r.fall.t*6)*.06*w}
         ch.position.set(0,4.75,0);ch.rotation.z=lerp(ch.rotation.z,clamp((r.latA||0)*.1,-.45,.45),1-Math.exp(-dt*3));ch.rotation.x=.1+Math.sin(t*1.2+r.phase)*.03-r.flare*.42}
       else{if(r.tdS==null)r.tdS=r.s;const d=(r.s-r.tdS)/1.5,c=smooth(0,8,d);r.m.rig.visible=false;r.m.clines.visible=c<.2;
         ch.rotation.z=lerp(ch.rotation.z,0,1-Math.exp(-dt*4));ch.rotation.x=-.32-Math.sin(Math.PI*c)*.7+c*.28;ch.rotation.y=c*.4*(r.phase>5?1:-1);ch.position.set(0,lerp(4.75,.16,c),-d-c*1.6);cn.scale.set(lerp(1,.86,c),lerp(1,.13,c),lerp(1,.92,c));ch.visible=d<50}}
@@ -155,7 +170,7 @@ function updateRacer(r,dt,t){
   r.m.bflame.visible=e.boost>0;if(e.boost>0)r.m.bflame.scale.set(1,1,.8+Math.random()*.6);
   r.m.bflame.position.set(0,air?1:1.1,air?-1.2:-.5);
   r.m.shield.visible=e.shield>0;
-  r.m.stars.visible=e.stun>0||e.stuck>0;r.m.stars.rotation.y+=dt*6;
+  r.m.stars.visible=e.stun>0||e.stuck>0;r.m.stars.position.y=r.fall?lerp(2.15,1.15,r.fall.lie||0):2.15;r.m.stars.rotation.y+=dt*6;
   if(r.mod==='rocket')r.m.jets.children.forEach(c=>{if(c.geometry===RG.flame)c.scale.set(1,.8+Math.random()*.7,1)});
   if(G.state==='race'&&!r.finished)for(const h of hazards){if(h.owner===r||h.hit.has(r))continue;if(Math.abs(r.s-h.s)<2.4&&Math.abs(r.lat-h.lat)<3.3){h.hit.add(r);
     if(e.shield>0){e.shield=0;feed(`🛡️ <b>${esc(r.name)}</b> passou ileso pela armadilha de ${esc(h.owner.name)}`)}

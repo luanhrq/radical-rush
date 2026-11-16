@@ -11,6 +11,15 @@ vec3 rr_hash3(vec3 p){p=fract(p*vec3(.1031,.1030,.0973));p+=dot(p,p.yxz+33.33);r
 float rr_vnoise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(rr_hash(i),rr_hash(i+vec2(1.,0.)),f.x),mix(rr_hash(i+vec2(0.,1.)),rr_hash(i+vec2(1.,1.)),f.x),f.y);}
 float rr_fbm(vec2 p){float s=0.,a=.5;for(int i=0;i<5;i++){s+=a*rr_vnoise(p);p=p*2.03+vec2(17.1,9.3);a*=.5;}return s;}
 `;
+// superfície da água: soma de ondas direcionais com cristas afiadas (exp(sin)) e arrasto de domínio;
+// as oitavas mais finas são cortadas com a distância para não cintilar
+const GLSL_WAVES=n=>`
+#define RR_WN ${n}
+vec2 rr_wdx(vec2 p,vec2 d,float f,float ph){float x=dot(d,p)*f+ph;float w=exp(sin(x)-1.);return vec2(w,-w*cos(x));}
+float rr_wav(vec2 p,float t,float lim){float it=0.,f=1.,tm=1.,wt=1.,sv=0.,sw=0.;
+  for(int i=0;i<RR_WN;i++){if(float(i)>=lim)break;vec2 d=normalize(vec2(sin(it),cos(it))+vec2(.85,.3));vec2 r=rr_wdx(p,d,f,t*tm);p+=d*r.y*wt*.38;sv+=r.x*wt;sw+=wt;wt*=.82;f*=1.18;tm*=1.07;it+=1232.399963;}
+  return sv/max(sw,1e-4);}
+`;
 const GLSL_SKY=`
 uniform vec3 uSunDir;uniform vec3 uSunCol;uniform vec3 uSkyTop;uniform vec3 uSkyHor;uniform vec4 uFogP;uniform float uTime;uniform vec2 uCloud;uniform vec3 uGround;uniform vec4 uUnder;uniform vec2 uWater;uniform vec3 uFogTint;
 ${GLSL_NOISE}
@@ -25,12 +34,12 @@ float rr_caus(vec2 q){q*=.32;vec2 w=q+vec2(rr_vnoise(q*.7+uTime*.15),rr_vnoise(q
 vec3 rr_underFog(vec3 c,vec3 ro,vec3 rd,float d){
   float y0=min(ro.y-uWater.x,0.);vec3 a=RR_SIG-RR_KD*rd.y;a=mix(a,vec3(1e-4),step(abs(a),vec3(1e-4)));vec3 I=(1.-exp(-a*d))/a;
   float mu=max(dot(rd,uSunDir),0.);float m2=mu*mu;
-  vec3 ins=vec3(.08,.48,.88)*RR_SIG*exp(RR_KD*y0*1.25)*I*(1.1+.45*m2*m2)*.6;
-  vec3 acc=vec3(0.);float tm=min(d,80.);float dt=tm/7.;float j=fract(52.9829189*fract(dot(gl_FragCoord.xy,vec2(.06711056,.00583715))));
-  for(int n=0;n<7;n++){float t=(float(n)+j)*dt;vec3 p=ro+rd*t;float py=min(p.y-uWater.x,0.);vec2 q=p.xz-uSunDir.xz*(py/max(uSunDir.y,.15));
-    float pat=smoothstep(.42,.72,rr_vnoise(q/22.+uTime*.04))*smoothstep(.3,.68,rr_vnoise(q.yx/9.+.3-uTime*.03));
-    acc+=exp(-RR_SIG*t+RR_KD*(py/max(uSunDir.y,.15)))*(pat*6.5+.025);}
-  vec3 sh=acc*dt*RR_SIG*(RR_WCOL*1.15+vec3(.0,.04,.03))*mix(vec3(1.),uSunCol,.4)*(.25+1.8*mu*mu*mu)*.6;
+  vec3 ins=mix(vec3(.022,.26,.7),vec3(.07,.5,.9),smoothstep(-.3,.8,rd.y))*RR_SIG*exp(RR_KD*y0*1.25)*I*(1.1+.45*m2*m2)*.6*mix(.6,1.5,smoothstep(-.55,.75,rd.y));
+  vec3 acc=vec3(0.);float tm=min(d,80.);float dt=tm/9.;float j=fract(52.9829189*fract(dot(gl_FragCoord.xy,vec2(.06711056,.00583715))));
+  for(int n=0;n<9;n++){float t=(float(n)+j)*dt;vec3 p=ro+rd*t;float py=min(p.y-uWater.x,0.);vec2 q=p.xz-uSunDir.xz*(py/max(uSunDir.y,.15));
+    float pat=smoothstep(.46,.7,rr_vnoise(q/22.+uTime*.04))*smoothstep(.34,.62,rr_vnoise(q.yx/7.+.3-uTime*.03));
+    acc+=exp(-RR_SIG*t+RR_KD*(py/max(uSunDir.y,.15)))*(pat*10.+.02);}
+  vec3 sh=acc*dt*RR_SIG*(RR_WCOL*1.15+vec3(.0,.04,.03))*mix(vec3(1.),uSunCol,.4)*(.3+1.8*mu*mu*mu)*.7;
   return min(c*exp(-RR_SIG*d)+ins+sh,vec3(64.));}
 float rr_cloudShadow(vec3 p){vec2 q=p.xz*.0011+uTime*vec2(.006,.003);float n=rr_fbm(q*1.3);return 1.-.55*smoothstep(1.-uCloud.x-.05,1.-uCloud.x+.25,n)*uCloud.y;}
 `;
