@@ -8,13 +8,14 @@ try{LS.set('channel','')}catch(_){}
 
 function renderTwitchChannel(login){
   const channel=login||'';
-  const connected=!!channel;
   const lobbyChan=$('lobbyChan');
-  if(lobbyChan)lobbyChan.textContent=connected?channel:'nenhum canal conectado';
+  if(lobbyChan)lobbyChan.textContent=channel||'nenhum canal conectado';
   const cta=document.querySelector('#lobby .cta-t');
-  if(cta)cta.innerHTML=connected
+  // Mantém #lobbyChan no DOM mesmo desconectado: o boot e as telas seguintes
+  // consultam esse nó para atualizar o canal exibido.
+  if(cta)cta.innerHTML=channel
     ?`Digite no chat de <b id="lobbyChan">${esc(channel)}</b> para entrar na corrida`
-    :'Conecte sua conta Twitch para direcionar a corrida ao seu canal.';
+    :'Conecte sua conta Twitch para direcionar a corrida ao seu canal. <b id="lobbyChan" class="hidden">nenhum canal conectado</b>';
   const hostChannel=$('padChan');
   if(hostChannel){hostChannel.value=channel;hostChannel.placeholder='Conecte sua conta Twitch';hostChannel.readOnly=true}
 }
