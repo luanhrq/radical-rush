@@ -6,12 +6,24 @@ const TWITCH_CLIENT_ID='gak9zpsfc5uef6csu3d2uo7mooaalq';
 const TWITCH_OAUTH_STATE_KEY='rr.twitch.oauth.state';
 const TWITCH_TOKEN_KEY='rr.twitch.oauth.token';
 const TWITCH_LOGIN_KEY='rr.twitch.oauth.login';
+// Conta lembrada neste navegador (sobrevive a fechar a aba, reiniciar o navegador ou o OBS).
+const TWITCH_REMEMBER_TOKEN_KEY='rr.twitch.remember.token';
+const TWITCH_REMEMBER_LOGIN_KEY='rr.twitch.remember.login';
 let twitchAuthToken='',twitchLogin='';
-// Keep auth scoped to this tab, but preserve it across reloads (F5).
+// Prioridade: a conta desta aba (cada aba pode usar uma conta diferente ao mesmo tempo e mantém a sua no F5);
+// sem conta na aba, usa a última conta conectada neste navegador.
 try{
   twitchAuthToken=sessionStorage.getItem(TWITCH_TOKEN_KEY)||'';
   twitchLogin=sessionStorage.getItem(TWITCH_LOGIN_KEY)||'';
 }catch(_){}
+const TWITCH_LOGGED_OUT_KEY='rr.twitch.loggedout';
+let twitchLoggedOut=false;try{twitchLoggedOut=sessionStorage.getItem(TWITCH_LOGGED_OUT_KEY)==='1'}catch(_){}
+if(!twitchLogin&&!twitchLoggedOut){
+  try{
+    twitchAuthToken=localStorage.getItem(TWITCH_REMEMBER_TOKEN_KEY)||'';
+    twitchLogin=localStorage.getItem(TWITCH_REMEMBER_LOGIN_KEY)||'';
+  }catch(_){}
+}
 function setStatus(ok,txt){const s=$('status');s.className='glass '+(ok?'ok':'bad');s.textContent=txt}
 function twitchIdentity(login){
   twitchLogin=login;
@@ -21,7 +33,9 @@ function twitchIdentity(login){
   window.dispatchEvent(new CustomEvent('rr:twitch-auth',{detail:{login}}));
 }
 function twitchRedirectUri(){return location.origin+location.pathname}
-function beginTwitchLogin(){
+// switchAccount: obriga a Twitch a mostrar a tela de autorização (para escolher outra conta).
+// Sem isso, quem já autorizou o jogo volta logado na hora, sem tela intermediária.
+function beginTwitchLogin(switchAccount){
   if(!TWITCH_CLIENT_ID){setStatus(false,'Client ID da Twitch não configurado');return}
   let state;
   try{
@@ -35,12 +49,15 @@ function beginTwitchLogin(){
   auth.searchParams.set('response_type','token');
   auth.searchParams.set('scope','chat:read');
   auth.searchParams.set('state',state);
-  auth.searchParams.set('force_verify','true');
+  if(switchAccount===true)auth.searchParams.set('force_verify','true');
   location.assign(auth.toString());
 }
 async function validateTwitchToken(token){
-  const response=await fetch('https://id.twitch.tv/oauth2/validate',{headers:{Authorization:'OAuth '+token},cache:'no-store'});
-  if(!response.ok)throw new Error('A Twitch não validou a sessão. Conecte sua conta novamente.');
+  let response;
+  try{response=await fetch('https://id.twitch.tv/oauth2/validate',{headers:{Authorization:'OAuth '+token},cache:'no-store',signal:AbortSignal.timeout?AbortSignal.timeout(8000):undefined})}
+  catch(e){const err=new Error('Sem resposta da Twitch para validar a sessão.');err.network=true;throw err}
+  if(response.status===401){const err=new Error('A sessão da Twitch expirou. Conecte sua conta novamente.');err.expired=true;throw err}
+  if(!response.ok){const err=new Error('A Twitch não validou a sessão agora.');err.network=true;throw err}
   const data=await response.json();
   if(data.client_id!==TWITCH_CLIENT_ID)throw new Error('A sessão pertence a outro aplicativo Twitch.');
   if(!data.login)throw new Error('Não foi possível identificar seu canal Twitch.');
@@ -51,11 +68,35 @@ function persistTwitchSession(token,login){
   try{
     sessionStorage.setItem(TWITCH_TOKEN_KEY,token);
     sessionStorage.setItem(TWITCH_LOGIN_KEY,twitchLogin);
+    sessionStorage.removeItem(TWITCH_LOGGED_OUT_KEY);
   }catch(_){/* If storage is unavailable, the current page can still stay connected. */}
+  try{
+    localStorage.setItem(TWITCH_REMEMBER_TOKEN_KEY,token);
+    localStorage.setItem(TWITCH_REMEMBER_LOGIN_KEY,twitchLogin);
+  }catch(_){}
 }
+// Token vencido ou revogado: esquece só o token. O canal continua lembrado,
+// porque ler o chat não precisa de autorização.
+function dropTwitchToken(){
+  const old=twitchAuthToken;twitchAuthToken='';
+  try{sessionStorage.removeItem(TWITCH_TOKEN_KEY)}catch(_){}
+  try{if(localStorage.getItem(TWITCH_REMEMBER_TOKEN_KEY)===old)localStorage.removeItem(TWITCH_REMEMBER_TOKEN_KEY)}catch(_){}
+}
+// Sair: esquece a conta desta aba e, se for a mesma conta lembrada no navegador, ela também.
 function clearTwitchSession(){
+  const oldLogin=twitchLogin;
   twitchAuthToken='';twitchLogin='';
   try{sessionStorage.removeItem(TWITCH_TOKEN_KEY);sessionStorage.removeItem(TWITCH_LOGIN_KEY)}catch(_){}
+  try{if(localStorage.getItem(TWITCH_REMEMBER_LOGIN_KEY)===oldLogin){localStorage.removeItem(TWITCH_REMEMBER_TOKEN_KEY);localStorage.removeItem(TWITCH_REMEMBER_LOGIN_KEY)}}catch(_){}
+}
+function logoutTwitch(){
+  clearTwitchSession();
+  // esta aba fica desconectada no F5 (não puxa a conta de outra aba) até conectar de novo
+  try{sessionStorage.setItem(TWITCH_LOGGED_OUT_KEY,'1')}catch(_){}
+  if(ws){ws.onclose=null;try{ws.close()}catch(e){}ws=null}clearTimeout(wsTimer);
+  CFG.channel='';G.twitch='disconnected';setStatus(false,'Twitch: desconectado');
+  twitchIdentity('');
+  window.dispatchEvent(new CustomEvent('rr:twitch-disconnected'));
 }
 function clearTwitchOAuthHash(){history.replaceState(null,'',location.pathname+location.search)}
 async function handleTwitchOAuthReturn(){
@@ -80,20 +121,32 @@ async function handleTwitchOAuthReturn(){
 }
 async function restoreTwitchLogin(){
   if(await handleTwitchOAuthReturn())return;
-  if(!twitchAuthToken)return;
-  setStatus(false,'Restaurando conexão com a Twitch…');
-  try{
-    const data=await validateTwitchToken(twitchAuthToken);
-    persistTwitchSession(twitchAuthToken,data.login);
-    twitchIdentity(twitchLogin);
-    connectTwitch(twitchLogin,true);
-  }catch(e){
-    clearTwitchSession();
-    G.twitch='disconnected';
-    setStatus(false,'Sessão Twitch expirada — conecte novamente');
-    window.dispatchEvent(new CustomEvent('rr:twitch-disconnected'));
+  if(!twitchLogin){
+    // sem conta lembrada: ?channel=canal na URL (OBS) só lê o chat, sem login
+    const ch=(Q.get('channel')||'').replace(/^#/,'').trim().toLowerCase();
+    if(ch){CFG.channel=ch;connectTwitch(ch,true)}
+    return;
   }
+  setStatus(false,'Restaurando conexão com a Twitch…');
+  if(twitchAuthToken){
+    try{
+      const data=await validateTwitchToken(twitchAuthToken);
+      persistTwitchSession(twitchAuthToken,data.login);
+    }catch(e){
+      if(e.expired)dropTwitchToken();
+      // sem rede para validar: segue com o canal lembrado; o chat diz se o token ainda vale
+    }
+  }
+  // mantém o canal mesmo sem token válido: o chat é lido sem precisar de login
+  try{sessionStorage.setItem(TWITCH_LOGIN_KEY,twitchLogin)}catch(_){}
+  twitchIdentity(twitchLogin);
+  connectTwitch(twitchLogin,true);
 }
+// a Twitch pede que apps revalidem o token a cada hora
+setInterval(async()=>{
+  if(!twitchAuthToken)return;
+  try{await validateTwitchToken(twitchAuthToken)}catch(e){if(e.expired)dropTwitchToken()}
+},3600*1000);
 function connectTwitch(ch,manual){
   ch=(ch||'').replace(/^#/,'').trim().toLowerCase();
   if(ws){ws.onclose=null;try{ws.close()}catch(e){}ws=null}clearTimeout(wsTimer);
@@ -112,13 +165,15 @@ function connectTwitch(ch,manual){
   ws.onmessage=ev=>{for(const line of String(ev.data).split('\r\n')){
     if(!line)continue;
     if(line.startsWith('PING')){ws.send('PONG :tmi.twitch.tv');continue}
+    // token recusado pelo chat (vencido/revogado): esquece o token e lê o mesmo canal sem login
+    if(/NOTICE \* :(Login authentication failed|Improperly formatted auth)/.test(line)&&twitchAuthToken){dropTwitchToken();ws.onclose=null;try{ws.close()}catch(e){}ws=null;connectTwitch(ch,true);return}
     let rest=line,tags={};
     if(rest[0]==='@'){const sp=rest.indexOf(' ');rest.slice(1,sp).split(';').forEach(kv=>{const i=kv.indexOf('=');tags[kv.slice(0,i)]=kv.slice(i+1)});rest=rest.slice(sp+1)}
     const m=rest.match(/^:([^!\s]+)!\S+ PRIVMSG #\S+ :(.*)$/);
     if(m){const login=m[1],name=(tags['display-name']||login).replace(/\\s/g,' ');handleChat(login,name||login,tags.color,m[2]);continue}
     if(/ (366|ROOMSTATE) /.test(rest)){
       G.twitch='ok';wsTry=0;
-      setStatus(true,twitchAuthToken?`Twitch: @${twitchLogin} • canal #${ch}`:`Twitch: #${ch} • digite !radical`);
+      setStatus(true,twitchLogin&&twitchLogin===ch?`Twitch: @${twitchLogin} • canal #${ch}`:`Twitch: #${ch} • digite !radical`);
       window.dispatchEvent(new CustomEvent('rr:twitch-chat-connected',{detail:{channel:ch,login:twitchLogin}}));
     }
   }};

@@ -18,19 +18,29 @@ Corrida 3D de esportes radicais controlada pelo chat da Twitch. Quem digita `!ra
 
 ![Campeão do campeonato](docs/campeao.png)
 
+## Conectar a sua conta Twitch
+
+Na tela inicial, clique em **CONECTAR COM TWITCH** e autorize o jogo (permissão só de leitura do chat). A corrida passa a usar o chat do seu canal.
+
+- **O login fica lembrado.** Recarregar a página (F5), abrir outra aba ou fechar e reabrir o navegador mantém a conta conectada. Se a autorização da Twitch vencer, o jogo continua lendo o chat do seu canal sem pedir login de novo.
+- **Contas independentes.** O jogo roda inteiro no navegador de cada pessoa, sem servidor compartilhado: vários streamers podem usar ao mesmo tempo, cada um com a própria conta, sem um interferir no outro. No mesmo navegador, cada aba também pode ficar numa conta diferente e mantém a sua no F5; uma aba nova abre com a última conta conectada.
+- **TROCAR CONTA** abre a tela da Twitch para escolher outra conta. **SAIR** desconecta esta aba e esquece a conta neste navegador.
+- **▶ INICIAR AGORA** pula o cronômetro do lobby e larga na hora (precisa de pelo menos um piloto).
+
 ## Usar na live (OBS)
 
 1. Adicione uma **Fonte de navegador** no OBS.
-2. URL: `https://luanhrq.github.io/radical-rush/?channel=jhonnydrumond`
+2. URL: `https://luanhrq.github.io/radical-rush/`
 3. Resolução 1920 × 1080. Marque "Controlar áudio pelo OBS" para a trilha e os efeitos irem para a live.
+4. Clique com o botão direito na fonte → **Interagir** e conecte a sua conta Twitch uma vez. O OBS guarda o login.
 
-O jogo conecta sozinho ao chat (leitura anônima, sem login) e começa a rodada quando o primeiro piloto entra.
+Sem login, também dá para só ler o chat de um canal com `?channel=seucanal` na URL.
 
 ### Parâmetros da URL
 
 | Parâmetro | Exemplo | O que faz |
 |---|---|---|
-| `channel` | `?channel=jhonnydrumond` | Canal da Twitch (padrão: jhonnydrumond) |
+| `channel` | `?channel=seucanal` | Lê o chat desse canal sem login (só quando nenhuma conta está conectada) |
 | `bots` | `&bots=4` | Adiciona pilotos bot para encher a largada |
 | `lobby` | `&lobby=30` | Segundos de espera na primeira rodada |
 | `lobbynext` | `&lobbynext=15` | Segundos de espera entre rodadas |

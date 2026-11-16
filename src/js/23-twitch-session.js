@@ -20,7 +20,8 @@ function renderTwitchChannel(login){
 
 const channelInput=$('padChan'),channelButton=$('btnChan');
 if(channelInput){channelInput.value='';channelInput.placeholder='Conecte sua conta Twitch';channelInput.readOnly=true}
-if(channelButton){channelButton.textContent='CONECTAR TWITCH';channelButton.onclick=()=>beginTwitchLogin()}
+if(channelButton){channelButton.textContent=twitchLogin?'TROCAR CONTA':'CONECTAR TWITCH';channelButton.onclick=()=>beginTwitchLogin(!!twitchLogin)}
+window.addEventListener('rr:twitch-auth',e=>{if(channelButton)channelButton.textContent=e.detail?.login?'TROCAR CONTA':'CONECTAR TWITCH'});
 
 window.addEventListener('rr:twitch-auth',e=>renderTwitchChannel(e.detail?.login||''));
 renderTwitchChannel(twitchLogin);

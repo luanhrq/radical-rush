@@ -14,7 +14,7 @@ async function boot(){
   $('lobbyChan').textContent=CFG.channel;$('padVer').textContent=`v${VERSION} · tecla C · atalhos 1–9`;$('roundNum').dataset.v=VERSION;
   if(CFG.bots)addBots(CFG.bots);
   if(Q.has('demo')){G.twitch='blocked';setStatus(false,'Modo demo');$('pad').classList.add('show');if(!CFG.bots)addBots(8)}
-  else connectTwitch(CFG.channel);
+  else if(CFG.channel&&G.twitch!=='ok'&&G.twitch!=='connecting')connectTwitch(CFG.channel);
   setLoading(false);
   audioInit();if(AU.ctx)AU.ctx.resume().catch(()=>{});setTimeout(updSndBtn,400);
   requestAnimationFrame(frame);

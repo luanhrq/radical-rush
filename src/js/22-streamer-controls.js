@@ -17,6 +17,8 @@
     .rr-twitch-mark{width:17px;height:17px;display:inline-grid;place-items:center;border-radius:4px;background:#fff;color:#9147ff;font-size:11px;font-weight:900;letter-spacing:-.08em}
     .rr-channel small{flex:1 1 100%;color:var(--ink3);font-size:10px;font-weight:600;line-height:1.45}
     .rr-connected{display:none;align-items:center;gap:7px;min-height:40px;padding:8px 12px;border:1px solid rgba(93,255,160,.25);border-radius:999px;background:rgba(93,255,160,.08);color:var(--ok);font-size:11px;font-weight:800;letter-spacing:.04em}
+    .rr-controls .rr-logout{min-height:40px;padding:8px 14px;background:transparent;border:1px solid rgba(255,255,255,.22);box-shadow:none;color:var(--ink2);font-size:11px}
+    .rr-controls .rr-logout:hover:not(:disabled){background:rgba(255,255,255,.08);color:#fff;box-shadow:none}.rr-logout[hidden]{display:none}
     .rr-connected.show{display:inline-flex}.rr-connected:before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor;box-shadow:0 0 10px currentColor}
     #champ .rr-controls{justify-content:center;margin:24px auto 0}
     #startNewChampionship{min-height:48px;padding:12px 22px;font-size:13px;letter-spacing:.1em;background:linear-gradient(115deg,#ff6331,#ff2e63);box-shadow:0 9px 28px rgba(255,65,46,.28)}
@@ -32,14 +34,15 @@
 
     if(!$('lobbyStart')){
       const controls=document.createElement('div');controls.className='rr-controls';
-      controls.innerHTML='<button id="lobbyStart" type="button">▶ INICIAR AGORA</button><div class="rr-channel"><button id="connectStreamerTwitch" type="button"><span class="rr-twitch-mark">t</span><span id="connectStreamerLabel">CONECTAR COM TWITCH</span></button><span id="streamerConnected" class="rr-connected" aria-live="polite"></span><small id="streamerChannelHelp">Conecte sua conta Twitch para usar automaticamente o chat do seu canal.</small></div>';
+      controls.innerHTML='<button id="lobbyStart" type="button">▶ INICIAR AGORA</button><div class="rr-channel"><button id="connectStreamerTwitch" type="button"><span class="rr-twitch-mark">t</span><span id="connectStreamerLabel">CONECTAR COM TWITCH</span></button><span id="streamerConnected" class="rr-connected" aria-live="polite"></span><button id="logoutStreamerTwitch" type="button" class="rr-logout" hidden>SAIR</button><small id="streamerChannelHelp">Conecte sua conta Twitch para usar automaticamente o chat do seu canal.</small></div>';
       lobbyLeft.append(controls);
       $('lobbyStart').addEventListener('click',()=>{
         if(G.state!=='lobby'||!racers.size&&!pending.size)return;
         for(const p of pending.values())createRacer(p.login,p.name,p.color,p.isBot);
         pending.clear();resetRacers();startIntro();
       });
-      $('connectStreamerTwitch').addEventListener('click',()=>beginTwitchLogin());
+      $('connectStreamerTwitch').addEventListener('click',()=>beginTwitchLogin(!!twitchLogin));
+      $('logoutStreamerTwitch').addEventListener('click',()=>logoutTwitch());
     }
 
     if(!$('startNewChampionship')){
@@ -59,11 +62,13 @@
   function updateTwitchControls(login){
     const button=$('connectStreamerTwitch'),label=$('connectStreamerLabel'),identity=$('streamerConnected'),help=$('streamerChannelHelp');
     if(!button||!label||!identity)return;
+    const out=$('logoutStreamerTwitch');if(out)out.hidden=!login;
     if(login){
       label.textContent='TROCAR CONTA';identity.textContent=`CONECTADO COMO @${login}`;identity.classList.add('show');
       if(help)help.textContent=`O chat da corrida está direcionado para #${CFG.channel||login}.`;
     }else{
       label.textContent='CONECTAR COM TWITCH';identity.textContent='';identity.classList.remove('show');
+      if(help)help.textContent='Conecte sua conta Twitch para usar automaticamente o chat do seu canal.';
     }
   }
   window.addEventListener('rr:twitch-auth',e=>updateTwitchControls(e.detail?.login||''));
