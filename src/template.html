@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="description" content="Radical Rush: corrida 3D de esportes radicais controlada pelo chat da Twitch.">
+<title>Radical Rush</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@500;600;700;800;900&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+/*STYLE*/</style>
+</head>
+<body>
+
+<canvas id="c"></canvas>
+<div id="loading"><div class="brand"><div class="mark"></div><div class="wm">RADICAL <span>RUSH</span></div></div><div class="bar"></div><small id="loadMsg">Esculpindo as montanhas…</small></div>
+<div id="ui">
+  <div id="tl" class="hidden">
+    <div class="brand"><div class="mark"></div><div><div class="wm">RADICAL <span>RUSH</span></div><div id="roundNum" class="sub">RODADA 1</div></div></div>
+    <div id="roundInfo"><div id="roundName">—</div><div id="segChips"></div></div>
+  </div>
+  <div id="timer" class="glass hidden">0:00</div>
+  <div id="tr"><div id="status" class="glass bad">Twitch: conectando…</div><button id="btnSnd" class="glass ibtn" type="button">SOM</button><button id="btnPad" class="glass ibtn" type="button">CONTROLE</button></div>
+  <div id="standings" class="glass hidden"><div class="hdr">CLASSIFICAÇÃO</div><ol id="standList"></ol></div>
+  <div id="feed"></div>
+  <div id="progress" class="hidden"><div id="progSegs"></div><div id="progDots"></div></div>
+  <div id="spot" class="glass"></div>
+  <div id="sndHint" class="glass">🔊 Clique em qualquer lugar para ligar o som</div>
+  <div id="specHint" class="glass">🖱️ <b>Scroll</b> troca de piloto · <b>arraste</b> para girar · <b>Shift+scroll</b> aproxima · <b>duplo clique</b> volta ao automático</div>
+  <div id="banner"><div class="b1"></div><div class="b2"></div></div>
+  <div id="countdown"></div>
+
+  <section id="lobby" class="screen">
+    <div class="scrim"></div>
+    <div class="lb-left">
+      <div class="eyebrow"><span class="live"></span><span id="lobbyRound">RODADA 1</span><span>· próxima corrida</span></div>
+      <h1 id="lobbyName" class="mega">—</h1>
+      <div id="lobbySegs" class="route"></div>
+      <div id="lobbyRules" class="rules"></div>
+      <div class="cta"><div class="cta-k">!radical</div><div class="cta-t">Digite no chat de <b id="lobbyChan">jhonnydrumond</b> para entrar na corrida</div></div>
+      <div class="lb-timer"><div><div class="lbl">Largada em</div><div id="lobbyTimer" class="num">--</div></div><div id="lobbyCount">Aguardando pilotos…</div></div>
+    </div>
+    <div class="lb-right">
+      <div class="card"><div class="card-h">PILOTOS NA LARGADA <span id="lobbyN">0</span></div><div id="lobbyPlayers" class="pgrid"></div></div>
+      <div class="card"><div class="card-h">RANKING DA SESSÃO</div><div id="sessionBoard"><div class="muted">Ninguém pontuou ainda</div></div></div>
+      <div class="card"><div class="card-h">TRAPAÇAS DO CHAT</div><div id="cmdHelp" class="cmdgrid"></div></div>
+    </div>
+  </section>
+
+  <section id="results" class="screen">
+    <div class="scrim"></div>
+    <div class="rs-wrap"><div class="eyebrow" style="justify-content:center">RESULTADO DA RODADA</div><h1 id="resTitle" class="mega">—</h1><div id="podium" class="podium"></div><div id="resList" class="rlist"></div></div>
+  </section>
+
+  <section id="champ" class="screen">
+    <div class="scrim"></div>
+    <div class="rs-wrap"><div class="eyebrow" style="justify-content:center">CAMPEÃO DO CAMPEONATO</div><h1 id="champTitle" class="mega">—</h1><div id="champSub" class="lbl" style="margin:-8px 0 22px;color:var(--volt)"></div><div id="champPod" class="podium"></div><div id="champList" class="rlist"></div><div id="champNext" class="muted" style="margin-top:16px"></div></div>
+  </section>
+
+  <div id="ticker"><div class="lbl2">CHAT</div><div id="tickTrack"></div></div>
+
+  <div id="pad" class="glass">
+    <div class="ph">CONTROLE DE TESTE <span id="padVer">tecla C · atalhos 1–9</span></div>
+    <div class="prow"><input id="padName" maxlength="20" value="Você" aria-label="Seu nome de piloto"><button id="btnJoin" type="button">ENTRAR</button></div>
+    <div id="padCmds"></div>
+    <div class="prow"><select id="selRounds" aria-label="Número de rodadas"><option value="3">Campeonato: 3 rodadas</option><option value="5">Campeonato: 5 rodadas</option><option value="7">Campeonato: 7 rodadas</option><option value="10">Campeonato: 10 rodadas</option><option value="0">Rodadas sem fim</option></select></div>
+    <div class="prow"><button id="btnBots" class="sec" type="button">+4 BOTS</button><select id="selQ" aria-label="Qualidade gráfica"><option value="ultra">Gráficos: Ultra</option><option value="high">Gráficos: Alto</option><option value="medium">Gráficos: Médio</option><option value="low">Gráficos: Leve</option></select></div>
+    <div class="prow"><input id="padChan" placeholder="canal da Twitch" aria-label="Canal da Twitch"><button id="btnChan" class="sec" type="button">CONECTAR</button></div>
+    <div id="padNote"></div>
+  </div>
+</div>
+
+<script type="importmap">
+{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.min.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}
+</script>
+<script type="module">
+/*SCRIPT*/</script>
+</body>
+</html>
