@@ -4,15 +4,19 @@
 let ws=null,wsTry=0,wsTimer=0;
 const TWITCH_CLIENT_ID='gak9zpsfc5uef6csu3d2uo7mooaalq';
 const TWITCH_OAUTH_STATE_KEY='rr.twitch.oauth.state';
+const TWITCH_TOKEN_KEY='rr.twitch.oauth.token';
+const TWITCH_LOGIN_KEY='rr.twitch.oauth.login';
 let twitchAuthToken='',twitchLogin='';
-// OAuth credentials and chat connections live only in this page instance.
-// A new tab/browser gets its own Twitch login and starts disconnected.
-try{sessionStorage.removeItem('rr.twitch.oauth.token');sessionStorage.removeItem('rr.twitch.oauth.login')}catch(_){}
+// Keep auth scoped to this tab, but preserve it across reloads (F5).
+try{
+  twitchAuthToken=sessionStorage.getItem(TWITCH_TOKEN_KEY)||'';
+  twitchLogin=sessionStorage.getItem(TWITCH_LOGIN_KEY)||'';
+}catch(_){}
 function setStatus(ok,txt){const s=$('status');s.className='glass '+(ok?'ok':'bad');s.textContent=txt}
 function twitchIdentity(login){
   twitchLogin=login;
   CFG.channel=login;
-  $('lobbyChan').textContent=login;
+  const lobbyChan=$('lobbyChan');if(lobbyChan)lobbyChan.textContent=login;
   const padChannel=$('padChan');if(padChannel)padChannel.value=login;
   window.dispatchEvent(new CustomEvent('rr:twitch-auth',{detail:{login}}));
 }
@@ -42,6 +46,17 @@ async function validateTwitchToken(token){
   if(!data.login)throw new Error('Não foi possível identificar seu canal Twitch.');
   return data;
 }
+function persistTwitchSession(token,login){
+  twitchAuthToken=token;twitchLogin=login.toLowerCase();
+  try{
+    sessionStorage.setItem(TWITCH_TOKEN_KEY,token);
+    sessionStorage.setItem(TWITCH_LOGIN_KEY,twitchLogin);
+  }catch(_){/* If storage is unavailable, the current page can still stay connected. */}
+}
+function clearTwitchSession(){
+  twitchAuthToken='';twitchLogin='';
+  try{sessionStorage.removeItem(TWITCH_TOKEN_KEY);sessionStorage.removeItem(TWITCH_LOGIN_KEY)}catch(_){}
+}
 function clearTwitchOAuthHash(){history.replaceState(null,'',location.pathname+location.search)}
 async function handleTwitchOAuthReturn(){
   const hash=new URLSearchParams(location.hash.slice(1));
@@ -57,15 +72,27 @@ async function handleTwitchOAuthReturn(){
   setStatus(false,'Validando sua conta Twitch…');
   try{
     const data=await validateTwitchToken(token);
-    twitchAuthToken=token;
-    twitchIdentity(data.login.toLowerCase());
+    persistTwitchSession(token,data.login);
+    twitchIdentity(twitchLogin);
     connectTwitch(twitchLogin,true);
-  }catch(e){setStatus(false,e.message||'Falha ao validar a conta Twitch')}
+  }catch(e){clearTwitchSession();setStatus(false,e.message||'Falha ao validar a conta Twitch')}
   return true;
 }
 async function restoreTwitchLogin(){
-  // Preserve OAuth callback handling, but never silently restore or connect an account.
-  await handleTwitchOAuthReturn();
+  if(await handleTwitchOAuthReturn())return;
+  if(!twitchAuthToken)return;
+  setStatus(false,'Restaurando conexão com a Twitch…');
+  try{
+    const data=await validateTwitchToken(twitchAuthToken);
+    persistTwitchSession(twitchAuthToken,data.login);
+    twitchIdentity(twitchLogin);
+    connectTwitch(twitchLogin,true);
+  }catch(e){
+    clearTwitchSession();
+    G.twitch='disconnected';
+    setStatus(false,'Sessão Twitch expirada — conecte novamente');
+    window.dispatchEvent(new CustomEvent('rr:twitch-disconnected'));
+  }
 }
 function connectTwitch(ch,manual){
   ch=(ch||'').replace(/^#/,'').trim().toLowerCase();
