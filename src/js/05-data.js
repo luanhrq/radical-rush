@@ -30,7 +30,9 @@ const RULES={
 };
 function genRound(n){
   // ?segs=bike,paraquedas&sky=sunset monta uma rodada fixa (para testar um trecho específico)
-  const qs=(Q.get('segs')||'').split(',').filter(m=>MODS[m]&&m!=='vara');
+  let qs=(Q.get('segs')||'').split(',').filter(m=>MODS[m]&&m!=='vara');
+  // mesma regra das rodadas sorteadas: escalada não combina com trechos no mar (o nível da água ficaria acima da pista)
+  if(qs.includes('escalada')&&(qs.includes('nado')||qs.includes('windsurf')))qs=qs.filter(m=>m!=='escalada');
   if(qs.length){const tot=qs.reduce((a,m)=>a+(m==='escalada'?0:WEIGHT[m]),0)||1,esc=qs.includes('escalada')?.045:0;return{name:'Rodada de teste',sky:SKIES[Q.get('sky')]?Q.get('sky'):'day',segs:qs.map(m=>[m,m==='escalada'?.045:WEIGHT[m]/tot*(1-esc)]),rules:(Q.get('regras')||'').split(',').filter(r=>RULES[r])}}
   if(n===0)return FIRST_ROUND;
   const R=mulberry(n*7919+(G.seed||1)),pk=a=>a[Math.floor(R()*a.length)];

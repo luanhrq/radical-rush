@@ -16,7 +16,10 @@ const ACTIONS={
     if(t.finished)return false;
     if(Math.abs(t.s-r.s)>70){feed(`🦶 <b>${esc(r.name)}</b> tentou derrubar ${esc(t.name)}, mas está longe demais`);return true}
     if(blocked(t,r,'a rasteira'))return true;sfx('hit',r.isBot?.6:1);stun(t,2.6);feed(`🦶 <b>${esc(r.name)}</b> deu uma RASTEIRA em <b>${esc(t.name)}</b>!`);spotlight(t);return true},
-  oleo(r){trackAt(r.s-3,TA);const sf=TA.surface;const kind=isG(sf)?'ground':(sf==='rio'||sf==='mar')?'water':sf;let mesh;
+  oleo(r){trackAt(r.s-3,TA);const sf=TA.surface;
+    // na saída do nado para a praia a armadilha vira óleo na areia, não água-viva no seco
+    const beach=sf==='water'&&W.water&&W.water.last&&TA.last&&TA.ground>W.water.level-.4;
+    const kind=isG(sf)||beach?'ground':(sf==='rio'||sf==='mar')?'water':sf;let mesh;
     if(kind==='ground'){mesh=new THREE.Mesh(new THREE.CircleGeometry(2.6,28),new THREE.MeshPhysicalMaterial({color:0x050507,roughness:.04,metalness:.2,clearcoat:1,iridescence:1,iridescenceIOR:1.5}));mesh.rotation.x=-Math.PI/2;mesh.position.copy(TA.pos).addScaledVector(TA.side,r.lat);mesh.position.y=TA.ground+.3}
     else{mesh=new THREE.Group();let m;
       if(kind==='water'){m=new THREE.MeshStandardMaterial({color:0xff7ad9,emissive:0xff3ac0,emissiveIntensity:1.8,transparent:true,opacity:.75,roughness:.3});m.side=THREE.DoubleSide;m.depthWrite=false;const core=new THREE.MeshStandardMaterial({color:0xffd0f4,emissive:0xff8ae0,emissiveIntensity:2.2,transparent:true,opacity:.85});
