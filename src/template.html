@@ -20,7 +20,7 @@
     <div id="roundInfo"><div id="roundName">—</div><div id="segChips"></div></div>
   </div>
   <div id="timer" class="glass hidden">0:00</div>
-  <div id="tr"><div id="status" class="glass bad">Twitch: conectando…</div><button id="btnSnd" class="glass ibtn" type="button">SOM</button><button id="btnPad" class="glass ibtn" type="button">CONTROLE</button></div>
+  <div id="tr"><div id="status" class="glass bad">Twitch: conectando…</div><button id="btnSnd" class="glass ibtn" type="button">SOM</button><button id="btnPad" class="glass ibtn" type="button">HOST</button></div>
   <div id="standings" class="glass hidden"><div class="hdr">CLASSIFICAÇÃO</div><ol id="standList"></ol></div>
   <div id="feed"></div>
   <div id="progress" class="hidden"><div id="progSegs"></div><div id="progDots"></div></div>
@@ -54,7 +54,7 @@
 
   <section id="champ" class="screen">
     <div class="scrim"></div>
-    <div class="rs-wrap"><div class="eyebrow" style="justify-content:center">CAMPEÃO DO CAMPEONATO</div><h1 id="champTitle" class="mega">—</h1><div id="champSub" class="lbl" style="margin:-8px 0 22px;color:var(--volt)"></div><div id="champPod" class="podium"></div><div id="champList" class="rlist"></div><div id="champNext" class="muted" style="margin-top:16px"></div></div>
+    <div class="rs-wrap"><div class="eyebrow" style="justify-content:center">CAMPEÃO DO CAMPEONATO</div><h1 id="champTitle" class="mega">—</h1><div id="champSub" class="lbl" style="margin:-8px 0 24px"></div><div id="champPod" class="podium"></div><div id="champList" class="rlist"></div><div id="champNext" class="lbl" style="margin-top:20px"></div></div>
   </section>
 
   <div id="ticker"><div class="lbl2">CHAT</div><div id="tickTrack"></div></div>
@@ -63,8 +63,8 @@
     <div class="ph">CONTROLE DE TESTE <span id="padVer">tecla C · atalhos 1–9</span></div>
     <div class="prow"><input id="padName" maxlength="20" value="Você" aria-label="Seu nome de piloto"><button id="btnJoin" type="button">ENTRAR</button></div>
     <div id="padCmds"></div>
-    <div class="prow"><select id="selRounds" aria-label="Número de rodadas"><option value="3">Campeonato: 3 rodadas</option><option value="5">Campeonato: 5 rodadas</option><option value="7">Campeonato: 7 rodadas</option><option value="10">Campeonato: 10 rodadas</option><option value="0">Rodadas sem fim</option></select></div>
-    <div class="prow"><button id="btnBots" class="sec" type="button">+4 BOTS</button><select id="selQ" aria-label="Qualidade gráfica"><option value="ultra">Gráficos: Ultra</option><option value="high">Gráficos: Alto</option><option value="medium">Gráficos: Médio</option><option value="low">Gráficos: Leve</option></select></div>
+    <div class="prow"><select id="selRounds" aria-label="Número de rodadas"><option value="3">Campeonato: 3 rodadas</option><option value="5">Campeonato: 5 rodadas</option><option value="7">Campeonato: 7 rodadas</option><option value="10">Campeonato: 10 rodadas</option><option value="0">Campeonato: sem fim</option></select></div>
+    <div class="prow"><button id="btnBots" class="sec" type="button">+4 BOTS</button><select id="selQ" aria-label="Qualidade gráfica"><option value="ultra">Gráficos: Ultra</option><option value="high">Gráficos: Alto</option><option value="medium">Gráficos: Médio</option><option value="low">Gráficos: Baixo</option></select></div>
     <div class="prow"><input id="padChan" placeholder="canal da Twitch" aria-label="Canal da Twitch"><button id="btnChan" class="sec" type="button">CONECTAR</button></div>
     <div id="padNote"></div>
   </div>
