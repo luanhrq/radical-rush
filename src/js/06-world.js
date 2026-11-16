@@ -19,10 +19,10 @@ function terrainH(x,z){
   const g=lerp(s.ground,baseZ(z),smooth(70,280,d));
   let h=g+t*(26+rg*210+nz*40)+Math.max(0,d-Wd-90)*.22;
   h+=fbm(W.n1,x*.045,z*.045,3)*1.8*smooth(Wd-3,Wd+8,d);
-  if(s.surface==='asfalto'){const e=smooth(0,.05,s.lu)*(1-smooth(.95,1,s.lu)),lat=(x-s.p.x)*s.sd.x+(z-s.p.z)*s.sd.z,up=lat*(s.seg%2?1:-1)>0,dd=Math.max(0,d-7.6);let hs;
+  if(s.surface==='asfalto'){const e=smooth(0,.05,s.lu)*(1-smooth(.95,1,s.lu)),lat=(x-s.p.x)*s.sd.x+(z-s.p.z)*s.sd.z,up=lat*(s.seg%2?1:-1)>0,dd=Math.max(0,d-8.8);let hs;
     if(up)hs=s.ground+dd*.42+smooth(8,70,dd)*(8+rg*90+nz*25)+fbm(W.n1,x*.07,z*.07,3)*1.4*smooth(0,5,dd);
     else{const drop=Math.min(48,dd*.85+dd*dd*.004);hs=lerp(s.ground-.25-drop+fbm(W.n1,x*.05,z*.05,3)*2.6*smooth(0,6,dd),g+(26+rg*210+nz*40)*.55,smooth(70,210,d))}
-    if(d<7.6)hs=s.ground;h=lerp(h,hs,e)}
+    if(d<8.8)hs=s.ground-.1;h=lerp(h,hs,e)}
   if(s.surface==='rock')h-=9*(1-smooth(12,20,d));
   if(wat){const deep=smooth(.06,.2,s.lu)*(1-smooth(.82,.92,s.lu));h+=(ridged(W.n1,x*.028,z*.028,4)*7+fbm(W.n2,x*.09,z*.09,3)*1.6+Math.max(0,fbm(W.n1,x*.012+3,z*.012,3))*14*smooth(20,45,d))*smooth(7,16,d)*deep}
   if(W.water&&W.water.last){const E=W.S[W.S.length-1];const hl=Math.hypot(E.t.x,E.t.z)||1;const ah=((x-E.p.x)*E.t.x+(z-E.p.z)*E.t.z)/hl;if(ah>18)h=lerp(h,W.water.level-28+fbm(W.n1,x*.01,z*.01,2)*6,smooth(18,190,ah))}
@@ -136,7 +136,7 @@ function buildWorld(def,seed){
     else if(sf==='rio'){ribbon(Math.max(0,i0-1),i1,18.5,.02,trackMaterial('river'),0,true);buildRiverBanks(i0,i1)}
     else if(sf==='mar')buildBuoys(i0,i1);
     else if(sf==='pista'){ribbon(Math.max(0,i0-1),i1,10.5,.22,trackMaterial('pista'));buildVara(i0,i1)}
-    else if(sf==='asfalto'){ribbon(Math.max(0,i0-1),i1,6.9,.06,trackMaterial('asfalto'));buildRoad(i0,i1)}
+    else if(sf==='asfalto'){ribbon(Math.max(0,i0-1),i1,6.9,.04,trackMaterial('asfalto'));buildRoad(i0,i1)}
     else if(B.mod==='escalada')climbWall(i0,i1);
     else if(B.mod==='nado')swimTube(i0,i1);
     if(B.mod==='paraquedas')buildLanding(i0,i1);

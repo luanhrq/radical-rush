@@ -53,6 +53,10 @@ function bodyGeo(cl){const P=[],UV=[],C=[],SI=[],SW=[],I=[];const col=new THREE.
 function headShape(g){const p=g.attributes.position;for(let i=0;i<p.count;i++){let x=p.getX(i),y=p.getY(i),z=p.getZ(i);const r=Math.hypot(x,y,z)||1,ny=y/r,nz=z/r;
   x*=.93*(1-.26*Math.max(0,-ny)*Math.max(0,-ny));if(ny<-.35&&nz>0)z+=.012*r*10*(Math.min(1,(-ny-.35)*2.2))*nz*.1;if(nz<0)z*=1+.07*(-nz);if(ny>.5)y*=1-.04*(ny-.5);
   if(Math.abs(ny)<.25&&nz>.6)z*=1+.025*(1-Math.abs(ny)/.25);p.setXYZ(i,x,y,z)}g.computeVertexNormals();return g}
+const M_BLOB=new THREE.MeshBasicMaterial({map:cTex(64,64,(x,w,h)=>{const g=x.createRadialGradient(32,32,2,32,32,31);g.addColorStop(0,'rgba(0,0,0,.55)');g.addColorStop(.55,'rgba(0,0,0,.26)');g.addColorStop(1,'rgba(0,0,0,0)');x.fillStyle=g;x.fillRect(0,0,w,h)}),transparent:true,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-4});
+const M_CLINE=new THREE.LineBasicMaterial({color:0x565c66,transparent:true,opacity:.5,depthWrite:false});
+M_CLINE.onBeforeCompile=sh=>{Object.assign(sh.uniforms,FOGU);sh.fragmentShader=sh.fragmentShader.replace('#include <fog_fragment>','gl_FragColor.a*=clamp(6./length(vFogView),0.,1.);\n#include <fog_fragment>')};M_CLINE.customProgramCacheKey=()=>'cline';
+const BLOB_GEO=new THREE.CircleGeometry(.6,20).rotateX(-Math.PI/2);
 function makeRider(color,name,pal){
   const c1=new THREE.Color(color),c2=pal&&pal.acc?new THREE.Color(pal.acc):c1.clone().offsetHSL(.08,-.1,.18),dark=0x1b1e25,pant=pal&&pal.pant?new THREE.Color(pal.pant).getHex():c1.clone().offsetHSL(0,-.4,-.33).getHex(),skin=pal&&pal.skin?pal.skin:pick([0xe0ac86,0xc98f68,0xa86f4c,0x7a4e33,0xf1c6a5]);
   const acc=c2.getHex(),prim=c1.getHex(),prim2=c1.clone().offsetHSL(0,0,-.1).getHex();
@@ -154,7 +158,7 @@ function makeRider(color,name,pal){
   skate.visible=false;
   const chute=new THREE.Group();chute.position.y=4.75;root.add(chute);
   const canopy=new THREE.Group(),rig=new THREE.Group();chute.add(canopy,rig);let clines,slider;
-  {const NC=9,SP=6.7,CH=2.75,ARC=1.02,R=SP/ARC,NX=NC*6,NZ=14,P2=[],C2=[],I2=[];const pal=[acc,prim,prim,prim,0xf4f4f4,prim,prim,prim,acc].map(c=>new THREE.Color(c));
+  {const NC=9,SP=6.2,CH=2.6,ARC=1.02,R=SP/ARC,NX=NC*6,NZ=14,P2=[],C2=[],I2=[];const pal=[acc,prim,prim,prim,0xf4f4f4,prim,prim,prim,acc].map(c=>new THREE.Color(c));
     const thick=u=>lerp(.17,.34,ssj(0,.2,u))*Math.pow(1-ssj(.2,1,u),.85)+.012;
     const pt=(xu,u,top)=>{const x=(xu-.5)*SP,cf=(xu*NC)%1,bul=Math.sin(cf*Math.PI)*.07*(1-u*.5);const y=top?thick(u)*.68+bul:-thick(u)*.32-bul*.2;const a=x/R,rr=R+y;return[Math.sin(a)*rr,Math.cos(a)*rr-R,CH*(.42-u)-Math.abs(xu-.5)*.25]};
     // extradorso e intradorso
@@ -173,15 +177,16 @@ function makeRider(color,name,pal){
     cmat.onBeforeCompile=sh=>{Object.assign(sh.uniforms,FOGU);sh.fragmentShader=sh.fragmentShader.replace('#include <emissivemap_fragment>','#include <emissivemap_fragment>\ntotalEmissiveRadiance+=diffuseColor.rgb*uSunCol*(.3+.5*max(uSunDir.y,0.));')};cmat.customProgramCacheKey=()=>'canopy';
     mk(cgeo,cmat,canopy);
     // linhas em cascata: 4 fileiras (A,B → tirante dianteiro; C,D → tirante traseiro)
-    const lp=[],RY=-3.2,rz=[.035,.035,-.035,-.035],rows=[.07,.3,.56,.82];
+    const lp=[],RY=-3.2,rz=[.035,0,-.035],rows=[.08,.44,.8];
     rows.forEach((u,ri)=>{for(const sd of[-1,1]){const rs=[sd*.2,RY,rz[ri]];const ribs=sd<0?[0,1,2,3,4]:[9,8,7,6,5];for(const grp of[[ribs[0],ribs[1]],[ribs[2],ribs[3]],[ribs[4]]]){const at=grp.map(ci=>pt(ci/NC,u,0));const mx=at.reduce((s2,a)=>s2+a[0],0)/at.length,my=at.reduce((s2,a)=>s2+a[1],0)/at.length,mz=at.reduce((s2,a)=>s2+a[2],0)/at.length;
         const cx=lerp(rs[0],mx,.56),cy=lerp(rs[1],my,.56),cz=lerp(rs[2],mz,.56);lp.push(rs[0],rs[1],rs[2],cx,cy,cz);for(const a of at)lp.push(cx,cy,cz,a[0],a[1],a[2])}}});
     for(const sd of[-1,1]){const ribs=sd<0?[0,1.5,3]:[9,7.5,6];const j=[sd*1.25,-1.15,-CH*.5];lp.push(sd*.22,RY+.2,-.08,...j);for(const ci of ribs){const a=pt(ci/NC,1,0);lp.push(...j,...a)}}
-    const lg=new THREE.BufferGeometry();lg.setAttribute('position',new THREE.Float32BufferAttribute(lp,3));clines=new THREE.LineSegments(lg,new THREE.LineBasicMaterial({color:0x2e333c,transparent:true,opacity:.42}));canopy.add(clines);
+    const lg=new THREE.BufferGeometry();lg.setAttribute('position',new THREE.Float32BufferAttribute(lp,3));clines=new THREE.LineSegments(lg,M_CLINE);canopy.add(clines);
     // tirantes, slider e pilotinho recolhido
     slider=new THREE.Object3D();rig.add(slider);
   }
   chute.visible=false;
+  const blob=new THREE.Mesh(BLOB_GEO,M_BLOB);blob.renderOrder=1;blob.visible=false;root.add(blob);
   const bflame=new THREE.Mesh(RG.bflame,M_FLAME);bflame.position.set(0,1.1,-.5);root.add(bflame);
   const shield=new THREE.Mesh(RG.shield,M_SHIELD);shield.position.y=1;root.add(shield);
   const stars=new THREE.Group();stars.position.y=2.15;root.add(stars);for(let k=0;k<4;k++){const s=new THREE.Mesh(RG.star,M_STAR);const a=k/4*Math.PI*2;s.position.set(Math.cos(a)*.35,0,Math.sin(a)*.35);stars.add(s)}
@@ -193,7 +198,7 @@ function makeRider(color,name,pal){
   const badgeParts=[bk,bkI,hb,cb];badgeParts.forEach(o=>o.visible=false);
   const tag=nameTag(name,color);tag.position.y=2.9;root.add(tag);
   root.scale.setScalar(1.5);
-  return{root,bank,spin,pelvis,spine,neck,armL,armR,foreL,foreR,legL,legR,shinL,shinR,fins:[finL,finR],vpole,skate,chute,canopy,rig,clines,slider,boat,oarL,oarR,surf,faceM,gog,skin,ski,polesL,polesR,board,bike,wF,wR,crank,wings,jets,bflame,shield,stars,tag,badgeM,badgeParts,
+  return{root,bank,spin,pelvis,spine,neck,armL,armR,foreL,foreR,legL,legR,shinL,shinR,fins:[finL,finR],vpole,skate,chute,canopy,rig,clines,slider,blob,boat,oarL,oarR,surf,faceM,gog,skin,ski,polesL,polesR,board,bike,wF,wR,crank,wings,jets,bflame,shield,stars,tag,badgeM,badgeParts,
     bodyMat,helmMat,paintMat,wingMat,skiMat,mats:[bodyMat,helmMat,paintMat,wingMat,skiMat,badgeM,ringM,faceM]};
 }
 function wingGeo(){
@@ -219,29 +224,29 @@ function poseRider(r,t,standing){
   const m=r.m,mod=r.mod,P=m.pelvis,Sp=m.spine;
   P.rotation.set(0,0,0);P.position.set(0,.93,0);Sp.rotation.set(0,0,0);m.neck.rotation.set(0,0,0);
   for(const l of[m.armL,m.armR,m.foreL,m.foreR,m.legL,m.legR,m.shinL,m.shinR])l.rotation.set(0,0,0);
-  const sp=clamp(r.v/30,0,1.5),br=Math.sin(t*2+r.phase)*.02;
+  const sp=clamp(r.v/30,0,1.5),br=Math.sin(t*2+r.phase)*.02,cn=r.cvN||0,bz=m.bank.rotation.z;
   const crouch=(a)=>{m.legL.rotation.x=m.legR.rotation.x=-a;m.shinL.rotation.x=m.shinR.rotation.x=a*2;P.position.y=.88*Math.cos(a)+.08};
-  if(mod==='ski'){const a=.42+sp*.12+Math.sin(t*3.2+r.phase)*.04;crouch(a);Sp.rotation.x=.35+sp*.1;m.neck.rotation.x=-.35;
-    const sw=Math.sin(t*3+r.phase)*.2;m.armL.rotation.x=-.45+sw;m.armR.rotation.x=-.45-sw;m.foreL.rotation.x=m.foreR.rotation.x=-.7;m.armL.rotation.z=.18;m.armR.rotation.z=-.18;
+  if(mod==='ski'){const a=.4+sp*.1+Math.abs(cn)*.2+Math.sin(t*3.2+r.phase)*.02;crouch(a);Sp.rotation.x=.35+sp*.1;Sp.rotation.z=-bz*.5;Sp.rotation.y=cn*.18;m.neck.rotation.x=-.35;m.neck.rotation.z=-bz*.3;
+    const sw=cn*.3;m.armL.rotation.x=-.5+sw;m.armR.rotation.x=-.5-sw;m.foreL.rotation.x=m.foreR.rotation.x=-.7;m.armL.rotation.z=.2+Math.max(0,bz)*.6;m.armR.rotation.z=-.2+Math.min(0,bz)*.6;
     m.polesL.rotation.x=m.polesR.rotation.x=.9}
-  else if(mod==='snowboard'){P.rotation.y=1.38;const a=.45+Math.sin(t*2.4+r.phase)*.05;crouch(a);m.legL.rotation.z=.16;m.legR.rotation.z=-.16;Sp.rotation.x=.22;Sp.rotation.y=-.35;m.neck.rotation.y=-1.0;
-    m.armL.rotation.z=.85+Math.sin(t*2+r.phase)*.15;m.armR.rotation.z=-.7;m.armL.rotation.x=m.armR.rotation.x=-.3;m.foreL.rotation.x=m.foreR.rotation.x=-.4}
+  else if(mod==='snowboard'){P.rotation.y=1.38;const a=.42+Math.abs(cn)*.24+Math.sin(t*2.4+r.phase)*.02;crouch(a);m.legL.rotation.z=.16;m.legR.rotation.z=-.16;Sp.rotation.x=.22+Math.abs(cn)*.1;Sp.rotation.y=-.35+cn*.22;m.neck.rotation.y=-1.0;
+    m.armL.rotation.z=.85+cn*.3+Math.sin(t*2+r.phase)*.05;m.armR.rotation.z=-.7+cn*.3;m.armL.rotation.x=m.armR.rotation.x=-.3;m.foreL.rotation.x=m.foreR.rotation.x=-.4}
   else if(mod==='bike'){P.position.set(0,1.0,-.22);const pd=r.pedal;const ps=Math.sin(pd)*.32,pc=Math.cos(pd)*.25;
     m.legL.rotation.x=-1.25+ps;m.shinL.rotation.x=1.35-pc-ps*.4;m.legR.rotation.x=-1.25-ps;m.shinR.rotation.x=1.35+pc+ps*.4;
-    Sp.rotation.x=.85;m.neck.rotation.x=-.75;m.armL.rotation.x=m.armR.rotation.x=-1.05;m.foreL.rotation.x=m.foreR.rotation.x=-.35;m.armL.rotation.z=.22;m.armR.rotation.z=-.22;m.crank.rotation.x=pd}
+    Sp.rotation.x=.85+Math.sin(pd*2)*.03;Sp.rotation.z=Math.sin(pd)*.05-bz*.3;P.position.x=Math.sin(pd)*.025;m.neck.rotation.x=-.75;m.neck.rotation.z=-bz*.3;m.armL.rotation.x=m.armR.rotation.x=-1.05;m.foreL.rotation.x=m.foreR.rotation.x=-.35;m.armL.rotation.z=.22;m.armR.rotation.z=-.22;m.crank.rotation.x=pd}
   else if(mod==='escalada'){const c=r.climb,a=Math.sin(c);P.position.set(0,.95,0);Sp.rotation.x=-.06;m.neck.rotation.x=-.5;
     m.armL.rotation.x=-2.55-a*.45;m.foreL.rotation.x=-.35-Math.max(0,a)*.75;m.armR.rotation.x=-2.55+a*.45;m.foreR.rotation.x=-.35-Math.max(0,-a)*.75;m.armL.rotation.z=.3;m.armR.rotation.z=-.3;
     m.legL.rotation.x=-.5-Math.max(0,-a)*.8;m.shinL.rotation.x=.8+Math.max(0,-a)*.7;m.legR.rotation.x=-.5-Math.max(0,a)*.8;m.shinR.rotation.x=.8+Math.max(0,a)*.7;m.legL.rotation.z=.25;m.legR.rotation.z=-.25}
   else if(mod==='vara'){const u=r.vaultU;if(u!=null){P.position.y=.92;Sp.rotation.x=-.35;m.armL.rotation.x=m.armR.rotation.x=-2.8;m.foreL.rotation.x=m.foreR.rotation.x=-.15;const k=Math.sin(Math.PI*Math.min(u/.85,1));m.legL.rotation.x=m.legR.rotation.x=-1.6*k;m.shinL.rotation.x=m.shinR.rotation.x=.4*(1-k)}
     else{const c=r.pedal*1.25;crouch(.12);Sp.rotation.x=.28;m.legL.rotation.x=Math.sin(c)*.95-.1;m.legR.rotation.x=-Math.sin(c)*.95-.1;m.shinL.rotation.x=.4+Math.max(0,-Math.sin(c))*1.3;m.shinR.rotation.x=.4+Math.max(0,Math.sin(c))*1.3;m.armL.rotation.x=m.armR.rotation.x=-.95;m.foreL.rotation.x=m.foreR.rotation.x=-.7;m.armL.rotation.z=-.15;m.armR.rotation.z=.15}}
-  else if(mod==='skate'){const lv=clamp(r.latV||0,-3,3);P.rotation.y=.95;crouch(.98);P.position.y+=.11;m.legL.rotation.z=.12;m.legR.rotation.z=-.12;Sp.rotation.x=.78;Sp.rotation.y=-.38;Sp.rotation.z=lv*.04;m.neck.rotation.x=-.85;m.neck.rotation.y=-.62;
+  else if(mod==='skate'){const lv=clamp(r.latVT||0,-3,3);P.rotation.y=.95;crouch(.98-Math.abs(cn)*.14);P.position.y+=.11;m.legL.rotation.z=.12;m.legR.rotation.z=-.12;Sp.rotation.x=.78;Sp.rotation.y=-.38;Sp.rotation.z=lv*.04;m.neck.rotation.x=-.85;m.neck.rotation.y=-.62;
     m.armL.rotation.x=m.armR.rotation.x=.75;m.armL.rotation.z=.1;m.armR.rotation.z=-.1;m.foreL.rotation.x=m.foreR.rotation.x=-.25}
   else if(mod==='paraquedas'){
     if(r.grounded){const c=(r.stroke||0)*1.35,sw=Math.sin(c);P.position.y=.93+Math.abs(Math.cos(c))*.05;Sp.rotation.x=.2;m.neck.rotation.x=-.1;m.legL.rotation.x=-sw*.8;m.legR.rotation.x=sw*.8;m.shinL.rotation.x=.25+Math.max(0,sw)*1.25;m.shinR.rotation.x=.25+Math.max(0,-sw)*1.25;
       m.armL.rotation.x=sw*.85;m.armR.rotation.x=-sw*.85;m.foreL.rotation.x=m.foreR.rotation.x=-1.3;m.armL.rotation.z=.14;m.armR.rotation.z=-.14}
     else if(r.chuteOpen){const fl=r.flare||0,sw=Math.sin(t*1.3+r.phase)*.06;P.position.y=.96;Sp.rotation.x=-.06;m.neck.rotation.x=.12-fl*.2;
       m.legL.rotation.x=lerp(-.55,-.2,fl)+sw;m.legR.rotation.x=lerp(-.48,-.2,fl)-sw;m.shinL.rotation.x=lerp(.75,.3,fl);m.shinR.rotation.x=lerp(.68,.3,fl);m.legL.rotation.z=.07;m.legR.rotation.z=-.07;
-      const st=clamp((r.latV||0)*.12,-.35,.35);m.armL.rotation.x=lerp(-2.25,-.35,fl)+Math.max(0,st)*1.1;m.armR.rotation.x=lerp(-2.25,-.35,fl)+Math.max(0,-st)*1.1;m.armL.rotation.z=lerp(.42,.3,fl);m.armR.rotation.z=-lerp(.42,.3,fl);m.foreL.rotation.x=m.foreR.rotation.x=lerp(-.75,-.25,fl)}
+      const st=clamp((r.latA||0)*.14,-.5,.5);m.armL.rotation.x=lerp(-2.25,-.35,fl)+Math.max(0,-st)*1.6;m.armR.rotation.x=lerp(-2.25,-.35,fl)+Math.max(0,st)*1.6;m.legL.rotation.z-=bz*.5;m.legR.rotation.z-=bz*.5;Sp.rotation.z=-bz*.4;m.armL.rotation.z=lerp(.42,.3,fl);m.armR.rotation.z=-lerp(.42,.3,fl);m.foreL.rotation.x=m.foreR.rotation.x=lerp(-.75,-.25,fl)}
     else{P.position.set(0,1,0);P.rotation.x=Math.PI/2*.94;Sp.rotation.x=-.18;m.armL.rotation.z=1.38;m.armR.rotation.z=-1.38;m.armL.rotation.x=m.armR.rotation.x=-.4;m.foreL.rotation.x=m.foreR.rotation.x=-1.45;m.legL.rotation.z=.3;m.legR.rotation.z=-.3;m.legL.rotation.x=m.legR.rotation.x=.15;m.shinL.rotation.x=m.shinR.rotation.x=1.25;m.neck.rotation.x=-1.25;const f=Math.sin(t*9+r.phase)*.04;m.armL.rotation.z+=f;m.armR.rotation.z-=f}}
   else if(mod==='remo'){const ph=((r.stroke||0)/(2*Math.PI))%1,dr=ph<.42?ph/.42:1-(ph-.42)/.58,dk=smooth(0,1,dr);P.position.set(0,.33,lerp(-.38,.28,dk));P.rotation.y=Math.PI;
     m.legL.rotation.x=m.legR.rotation.x=lerp(-2.3,-1.52,dk);m.shinL.rotation.x=m.shinR.rotation.x=lerp(2.25,.15,dk);m.legL.rotation.z=.06;m.legR.rotation.z=-.06;
@@ -251,11 +256,14 @@ function poseRider(r,t,standing){
     m.armL.rotation.x=m.armR.rotation.x=-1.38;m.armL.rotation.z=.32;m.armR.rotation.z=-.1;m.foreL.rotation.x=m.foreR.rotation.x=-.25}
   else if(mod==='nado'&&(r.wade||0)>.5){const c=r.stroke*1.35,sw=Math.sin(c);P.position.y=.93+Math.abs(Math.cos(c))*.05;Sp.rotation.x=.22;m.neck.rotation.x=-.12;
     m.legL.rotation.x=-sw*.8;m.legR.rotation.x=sw*.8;m.shinL.rotation.x=.25+Math.max(0,sw)*1.25;m.shinR.rotation.x=.25+Math.max(0,-sw)*1.25;m.armL.rotation.x=sw*.85;m.armR.rotation.x=-sw*.85;m.foreL.rotation.x=m.foreR.rotation.x=-1.35;m.armL.rotation.z=.14;m.armR.rotation.z=-.14}
-  else if(mod==='nado'){P.position.set(0,1,0);P.rotation.x=Math.PI/2;const c=r.stroke;m.armL.rotation.x=c;m.armR.rotation.x=c+Math.PI;
+  else if(mod==='nado'){P.position.set(0,1,0);P.rotation.x=Math.PI/2;const c=r.stroke;P.rotation.z=Math.sin(c)*.07;m.armL.rotation.x=c;m.armR.rotation.x=c+Math.PI;
     m.foreL.rotation.x=-.7*Math.max(0,Math.sin(c));m.foreR.rotation.x=-.7*Math.max(0,Math.sin(c+Math.PI));Sp.rotation.y=Math.sin(c)*.35;m.neck.rotation.x=-1.05;m.neck.rotation.y=Math.sin(c)*.5;
     const k=Math.sin(c*3)*.28;m.legL.rotation.x=k;m.legR.rotation.x=-k;m.shinL.rotation.x=.15+Math.max(0,-k);m.shinR.rotation.x=.15+Math.max(0,k)}
   else if(standing){crouch(.08);m.armL.rotation.z=.25+br;m.armR.rotation.z=-.25-br;m.foreL.rotation.x=m.foreR.rotation.x=-.2}
   else{P.position.set(0,1,0);P.rotation.x=Math.PI/2;const f=Math.sin(t*2.2+r.phase)*.05;m.armL.rotation.z=1.42+f;m.armR.rotation.z=-1.42-f;m.armL.rotation.x=m.armR.rotation.x=.1;m.legL.rotation.z=.15;m.legR.rotation.z=-.15;m.neck.rotation.x=-1.05}
   Sp.rotation.x+=br;
+  // comemoração ao cruzar a chegada
+  if(r.finished&&!r.out&&G.raceT-r.time<5&&(mod==='ski'||mod==='snowboard'||mod==='skate'||mod==='bike'||(mod==='paraquedas'&&r.grounded)||(mod==='nado'&&(r.wade||0)>.5))){const pu=Math.sin(t*9+r.phase)*.2;
+    m.armR.rotation.set(-2.7+pu,0,-.3);m.foreR.rotation.x=-.35;if(mod!=='bike'){m.armL.rotation.set(-2.7-pu,0,.3);m.foreL.rotation.x=-.35}Sp.rotation.x-=.15;m.neck.rotation.x=.15}
 }
 

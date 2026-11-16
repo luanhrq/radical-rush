@@ -35,7 +35,7 @@ const GradeShader={
       for(int g=1;g<4;g++){vec2 gp=mix(uSunUV,vec2(.5),float(g)*.55);vec2 gd=(uv-gp)*vec2(asp,1.);float r=.025*float(g);col+=uSunTint*uSunVis*.035*smoothstep(r,r*.6,length(gd));}}
     col=mix(col,col*vec3(.92,1.,1.04),uUW);col*=uExp*1.15*mix(1.,.9,uUW);col=agx(col);col=toSRGB(col);
     float l=dot(col,vec3(.2126,.7152,.0722));col=mix(vec3(l),col,1.22+uUW*.3);
-    col=mix(col,col*col*(3.-2.*col),.2+uUW*.25);
+    col=mix(col,col*col*(3.-2.*col),.36+uUW*.12);
     col+=vec3(-.012,.0,.016)*(1.-l)+vec3(.016,.007,-.012)*l;
     float v=smoothstep(1.05,.3,length(dc*vec2(asp,1.)*.9));col*=mix(.7,1.,v);
     col+=(fract(52.9829189*fract(dot(gl_FragCoord.xy,vec2(.06711056,.00583715))))-.5)/255.;
@@ -111,11 +111,13 @@ Object.assign(sun.shadow.camera,{left:-48,right:48,top:48,bottom:-48,near:1,far:
 sun.shadow.bias=-.0003;sun.shadow.normalBias=.35;
 scene.add(sun,sun.target);
 const fill=new THREE.HemisphereLight(0xffffff,0x444444,.15);scene.add(fill);
+// luz rebatida do lado oposto ao sol: dá volume ao que está na sombra
+const bounce=new THREE.DirectionalLight(0xffffff,.3);scene.add(bounce);
 function setShadowRes(){sun.shadow.mapSize.set(QL.shadow,QL.shadow);if(sun.shadow.map){sun.shadow.map.dispose();sun.shadow.map=null}}
 setShadowRes();
 
 const SKIES={
-  day:{haze:0x9fbfe0,top:0x2c6fd8,hor:0xbdd8f2,sun:0xfff1dc,sunI:3.7,elev:.78,az:.7,exp:1.0,fog:[.0032,.0055,.00010],cloud:[.42,.6],ground:0x5d6152,mul:1.35},
+  day:{haze:0x9fbfe0,top:0x2c6fd8,hor:0xbdd8f2,sun:0xfff1dc,sunI:3.7,elev:.78,az:.7,exp:1.0,fog:[.0026,.0055,.00008],cloud:[.42,.6],ground:0x5d6152,mul:1.35},
   golden:{haze:0xb7bcc9,top:0x3567c2,hor:0xffcf9c,sun:0xffb874,sunI:3.4,elev:.3,az:2.3,exp:1.06,fog:[.0029,.0050,.0001],cloud:[.48,.65],ground:0x6b5a45,mul:1.3},
   sunset:{haze:0x9f9bbb,top:0x24347a,hor:0xf89868,sun:0xffa873,sunI:3.1,elev:.2,az:-2.5,exp:1.15,fog:[.0026,.0050,.00009],cloud:[.52,.55],ground:0x4a3a40,mul:1.25},
   crisp:{haze:0xa8c6ea,top:0x1648b2,hor:0xd4eaff,sun:0xffffff,sunI:3.9,elev:.55,az:-.9,exp:.95,fog:[.0024,.0060,.00008],cloud:[.3,.5],ground:0x8090a0,mul:1.4},
@@ -130,6 +132,7 @@ function applySky(k,baseH){
   FOGU.uFogP.value.set(S.fog[0],S.fog[1],baseH,S.fog[2]);FOGU.uCloud.value.set(S.cloud[0],S.cloud[1]);
   sun.color.setHex(S.sun);sun.intensity=S.sunI;
   fill.color.setHex(S.top);fill.groundColor.setHex(S.ground);
+  bounce.position.set(-SUN_DIR.x,.42,-SUN_DIR.z);bounce.color.setHex(S.hor).lerp(new THREE.Color(S.ground),.35);bounce.intensity=S.sunI*.11;
   if(post.grade){post.grade.uniforms.uExp.value=S.exp;post.grade.uniforms.uSunTint.value.setHex(S.sun)}
   renderer.toneMappingExposure=S.exp;
   envSky.position.set(0,0,0);

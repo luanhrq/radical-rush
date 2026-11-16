@@ -11,7 +11,7 @@ import {FXAAShader} from 'three/addons/shaders/FXAAShader.js';
 // ======================================================================
 // CONFIG
 // ======================================================================
-const VERSION='2.0';
+const VERSION='2.1';
 const LS={get(k,d){try{const v=localStorage.getItem('rr.'+k);return v==null?d:v}catch(e){return d}},set(k,v){try{localStorage.setItem('rr.'+k,v)}catch(e){}}};
 const Q=new URLSearchParams(location.search);
 const CFG={

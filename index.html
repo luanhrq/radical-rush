@@ -255,7 +255,7 @@ import {FXAAShader} from 'three/addons/shaders/FXAAShader.js';
 // ======================================================================
 // CONFIG
 // ======================================================================
-const VERSION='2.0';
+const VERSION='2.1';
 const LS={get(k,d){try{const v=localStorage.getItem('rr.'+k);return v==null?d:v}catch(e){return d}},set(k,v){try{localStorage.setItem('rr.'+k,v)}catch(e){}}};
 const Q=new URLSearchParams(location.search);
 const CFG={
@@ -397,7 +397,7 @@ const GradeShader={
       for(int g=1;g<4;g++){vec2 gp=mix(uSunUV,vec2(.5),float(g)*.55);vec2 gd=(uv-gp)*vec2(asp,1.);float r=.025*float(g);col+=uSunTint*uSunVis*.035*smoothstep(r,r*.6,length(gd));}}
     col=mix(col,col*vec3(.92,1.,1.04),uUW);col*=uExp*1.15*mix(1.,.9,uUW);col=agx(col);col=toSRGB(col);
     float l=dot(col,vec3(.2126,.7152,.0722));col=mix(vec3(l),col,1.22+uUW*.3);
-    col=mix(col,col*col*(3.-2.*col),.2+uUW*.25);
+    col=mix(col,col*col*(3.-2.*col),.36+uUW*.12);
     col+=vec3(-.012,.0,.016)*(1.-l)+vec3(.016,.007,-.012)*l;
     float v=smoothstep(1.05,.3,length(dc*vec2(asp,1.)*.9));col*=mix(.7,1.,v);
     col+=(fract(52.9829189*fract(dot(gl_FragCoord.xy,vec2(.06711056,.00583715))))-.5)/255.;
@@ -473,11 +473,13 @@ Object.assign(sun.shadow.camera,{left:-48,right:48,top:48,bottom:-48,near:1,far:
 sun.shadow.bias=-.0003;sun.shadow.normalBias=.35;
 scene.add(sun,sun.target);
 const fill=new THREE.HemisphereLight(0xffffff,0x444444,.15);scene.add(fill);
+// luz rebatida do lado oposto ao sol: dá volume ao que está na sombra
+const bounce=new THREE.DirectionalLight(0xffffff,.3);scene.add(bounce);
 function setShadowRes(){sun.shadow.mapSize.set(QL.shadow,QL.shadow);if(sun.shadow.map){sun.shadow.map.dispose();sun.shadow.map=null}}
 setShadowRes();
 
 const SKIES={
-  day:{haze:0x9fbfe0,top:0x2c6fd8,hor:0xbdd8f2,sun:0xfff1dc,sunI:3.7,elev:.78,az:.7,exp:1.0,fog:[.0032,.0055,.00010],cloud:[.42,.6],ground:0x5d6152,mul:1.35},
+  day:{haze:0x9fbfe0,top:0x2c6fd8,hor:0xbdd8f2,sun:0xfff1dc,sunI:3.7,elev:.78,az:.7,exp:1.0,fog:[.0026,.0055,.00008],cloud:[.42,.6],ground:0x5d6152,mul:1.35},
   golden:{haze:0xb7bcc9,top:0x3567c2,hor:0xffcf9c,sun:0xffb874,sunI:3.4,elev:.3,az:2.3,exp:1.06,fog:[.0029,.0050,.0001],cloud:[.48,.65],ground:0x6b5a45,mul:1.3},
   sunset:{haze:0x9f9bbb,top:0x24347a,hor:0xf89868,sun:0xffa873,sunI:3.1,elev:.2,az:-2.5,exp:1.15,fog:[.0026,.0050,.00009],cloud:[.52,.55],ground:0x4a3a40,mul:1.25},
   crisp:{haze:0xa8c6ea,top:0x1648b2,hor:0xd4eaff,sun:0xffffff,sunI:3.9,elev:.55,az:-.9,exp:.95,fog:[.0024,.0060,.00008],cloud:[.3,.5],ground:0x8090a0,mul:1.4},
@@ -492,6 +494,7 @@ function applySky(k,baseH){
   FOGU.uFogP.value.set(S.fog[0],S.fog[1],baseH,S.fog[2]);FOGU.uCloud.value.set(S.cloud[0],S.cloud[1]);
   sun.color.setHex(S.sun);sun.intensity=S.sunI;
   fill.color.setHex(S.top);fill.groundColor.setHex(S.ground);
+  bounce.position.set(-SUN_DIR.x,.42,-SUN_DIR.z);bounce.color.setHex(S.hor).lerp(new THREE.Color(S.ground),.35);bounce.intensity=S.sunI*.11;
   if(post.grade){post.grade.uniforms.uExp.value=S.exp;post.grade.uniforms.uSunTint.value.setHex(S.sun)}
   renderer.toneMappingExposure=S.exp;
   envSky.position.set(0,0,0);
@@ -654,7 +657,7 @@ const MODS={
   rocket:{label:'ROCKET WING',icon:'🚀',speed:52,slope:.07,surface:'air',lat:15},
   escalada:{label:'ESCALADA',icon:'🧗',speed:5.5,slope:0,surface:'rock',lat:5},
   nado:{label:'NADO SUBMERSO',icon:'🏊',speed:15,slope:0,surface:'water',lat:2.3},
-  paraquedas:{label:'PARAQUEDAS',icon:'🪂',speed:44,slope:0,surface:'air',lat:13},
+  paraquedas:{label:'PARAQUEDAS',icon:'🪂',speed:44,slope:0,surface:'air',lat:19},
   vara:{label:'SALTO COM VARA',icon:'🏃',speed:15,slope:.03,surface:'pista',lat:5},
   skate:{label:'SKATE DOWNHILL',icon:'🛹',speed:31,slope:.1,surface:'asfalto',lat:4},
   remo:{label:'REMO',icon:'🚣',speed:14,slope:.012,surface:'rio',lat:10},
@@ -729,10 +732,10 @@ function terrainH(x,z){
   const g=lerp(s.ground,baseZ(z),smooth(70,280,d));
   let h=g+t*(26+rg*210+nz*40)+Math.max(0,d-Wd-90)*.22;
   h+=fbm(W.n1,x*.045,z*.045,3)*1.8*smooth(Wd-3,Wd+8,d);
-  if(s.surface==='asfalto'){const e=smooth(0,.05,s.lu)*(1-smooth(.95,1,s.lu)),lat=(x-s.p.x)*s.sd.x+(z-s.p.z)*s.sd.z,up=lat*(s.seg%2?1:-1)>0,dd=Math.max(0,d-7.6);let hs;
+  if(s.surface==='asfalto'){const e=smooth(0,.05,s.lu)*(1-smooth(.95,1,s.lu)),lat=(x-s.p.x)*s.sd.x+(z-s.p.z)*s.sd.z,up=lat*(s.seg%2?1:-1)>0,dd=Math.max(0,d-8.8);let hs;
     if(up)hs=s.ground+dd*.42+smooth(8,70,dd)*(8+rg*90+nz*25)+fbm(W.n1,x*.07,z*.07,3)*1.4*smooth(0,5,dd);
     else{const drop=Math.min(48,dd*.85+dd*dd*.004);hs=lerp(s.ground-.25-drop+fbm(W.n1,x*.05,z*.05,3)*2.6*smooth(0,6,dd),g+(26+rg*210+nz*40)*.55,smooth(70,210,d))}
-    if(d<7.6)hs=s.ground;h=lerp(h,hs,e)}
+    if(d<8.8)hs=s.ground-.1;h=lerp(h,hs,e)}
   if(s.surface==='rock')h-=9*(1-smooth(12,20,d));
   if(wat){const deep=smooth(.06,.2,s.lu)*(1-smooth(.82,.92,s.lu));h+=(ridged(W.n1,x*.028,z*.028,4)*7+fbm(W.n2,x*.09,z*.09,3)*1.6+Math.max(0,fbm(W.n1,x*.012+3,z*.012,3))*14*smooth(20,45,d))*smooth(7,16,d)*deep}
   if(W.water&&W.water.last){const E=W.S[W.S.length-1];const hl=Math.hypot(E.t.x,E.t.z)||1;const ah=((x-E.p.x)*E.t.x+(z-E.p.z)*E.t.z)/hl;if(ah>18)h=lerp(h,W.water.level-28+fbm(W.n1,x*.01,z*.01,2)*6,smooth(18,190,ah))}
@@ -846,7 +849,7 @@ function buildWorld(def,seed){
     else if(sf==='rio'){ribbon(Math.max(0,i0-1),i1,18.5,.02,trackMaterial('river'),0,true);buildRiverBanks(i0,i1)}
     else if(sf==='mar')buildBuoys(i0,i1);
     else if(sf==='pista'){ribbon(Math.max(0,i0-1),i1,10.5,.22,trackMaterial('pista'));buildVara(i0,i1)}
-    else if(sf==='asfalto'){ribbon(Math.max(0,i0-1),i1,6.9,.06,trackMaterial('asfalto'));buildRoad(i0,i1)}
+    else if(sf==='asfalto'){ribbon(Math.max(0,i0-1),i1,6.9,.04,trackMaterial('asfalto'));buildRoad(i0,i1)}
     else if(B.mod==='escalada')climbWall(i0,i1);
     else if(B.mod==='nado')swimTube(i0,i1);
     if(B.mod==='paraquedas')buildLanding(i0,i1);
@@ -1646,6 +1649,7 @@ vec4 hfS(vec2 xz){vec2 g=(xz-uHFInfo.xy)/uHFInfo.z;vec2 i=floor(g);vec2 f=g-i;fl
 vec2 hlf=vec2(uR*.5);vec2 wxz=uCenter-hlf+mod(aOff.xy*uR-(uCenter-hlf),uR);
 vec4 hf=hfS(wxz);float dist=length(wxz-uCenter);
 float keep=step(aOff.w,${cv?'hf.b':'hf.g'})*(1.-smoothstep(uR*.34,uR*.5,dist));
+${cv?'':'keep*=(1.-smoothstep(11.,24.,cameraPosition.y-hf.r))*(1.-smoothstep(40.,60.,distance(vec3(wxz.x,hf.r,wxz.y),cameraPosition)));'}
 float ang=aOff.z*6.2831;float s=sin(ang),c=cos(ang);
 float bh=(${cv?'.22+aOff.w*.4':'.45+aOff.w*.85'})*keep*(.7+.6*fract(aOff.z*7.3));
 float wv=sin(uTime*${cv?'.7':'1.8'}+wxz.x*.13+wxz.y*.09)*.5+.5;
@@ -1659,7 +1663,7 @@ vGH=aH;float fl=fract(aOff.z*91.7);
 vGTip=${cv?'fract(aOff.x*7.)>.45?vec3(.75,.12,.62):vec3(.12,.7,.66)':"fl>.988?(fract(aOff.y*53.)>.5?vec3(1.,.82,.15):vec3(.95,.95,1.)):mix(vec3(.2,.32,.06),vec3(.42,.42,.13),fract(aOff.x*31.))"};
 vGWP=transformed;`);
     sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nvarying float vGH;varying vec3 vGTip;varying vec3 vGWP;')
-      .replace('#include <map_fragment>',`diffuseColor.rgb=mix(${cv?'vec3(.05,.015,.06)':'vec3(.03,.06,.012)'},vGTip,smoothstep(0.,1.,vGH));`)
+      .replace('#include <map_fragment>',`diffuseColor.rgb=mix(${cv?'vec3(.05,.015,.06)':'vec3(.06,.105,.03)'},vGTip,smoothstep(0.,1.,vGH));`)
       .replace('#include <normal_fragment_begin>','#include <normal_fragment_begin>\nnormal=normalize(vNormal);')
       .replace('#include <emissivemap_fragment>','#include <emissivemap_fragment>\n{vec3 vd=normalize(vGWP-cameraPosition);totalEmissiveRadiance+=vGTip*uSunCol*pow(max(dot(vd,uSunDir),0.),3.)*.6*vGH;}')
       .replace('#include <lights_fragment_begin>',THREE.ShaderChunk.lights_fragment_begin.replace('getDirectionalLightInfo( directionalLight, directLight );','getDirectionalLightInfo( directionalLight, directLight );directLight.color*=rr_cloudShadow(vGWP);'));
@@ -1779,6 +1783,10 @@ function bodyGeo(cl){const P=[],UV=[],C=[],SI=[],SW=[],I=[];const col=new THREE.
 function headShape(g){const p=g.attributes.position;for(let i=0;i<p.count;i++){let x=p.getX(i),y=p.getY(i),z=p.getZ(i);const r=Math.hypot(x,y,z)||1,ny=y/r,nz=z/r;
   x*=.93*(1-.26*Math.max(0,-ny)*Math.max(0,-ny));if(ny<-.35&&nz>0)z+=.012*r*10*(Math.min(1,(-ny-.35)*2.2))*nz*.1;if(nz<0)z*=1+.07*(-nz);if(ny>.5)y*=1-.04*(ny-.5);
   if(Math.abs(ny)<.25&&nz>.6)z*=1+.025*(1-Math.abs(ny)/.25);p.setXYZ(i,x,y,z)}g.computeVertexNormals();return g}
+const M_BLOB=new THREE.MeshBasicMaterial({map:cTex(64,64,(x,w,h)=>{const g=x.createRadialGradient(32,32,2,32,32,31);g.addColorStop(0,'rgba(0,0,0,.55)');g.addColorStop(.55,'rgba(0,0,0,.26)');g.addColorStop(1,'rgba(0,0,0,0)');x.fillStyle=g;x.fillRect(0,0,w,h)}),transparent:true,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-4});
+const M_CLINE=new THREE.LineBasicMaterial({color:0x565c66,transparent:true,opacity:.5,depthWrite:false});
+M_CLINE.onBeforeCompile=sh=>{Object.assign(sh.uniforms,FOGU);sh.fragmentShader=sh.fragmentShader.replace('#include <fog_fragment>','gl_FragColor.a*=clamp(6./length(vFogView),0.,1.);\n#include <fog_fragment>')};M_CLINE.customProgramCacheKey=()=>'cline';
+const BLOB_GEO=new THREE.CircleGeometry(.6,20).rotateX(-Math.PI/2);
 function makeRider(color,name,pal){
   const c1=new THREE.Color(color),c2=pal&&pal.acc?new THREE.Color(pal.acc):c1.clone().offsetHSL(.08,-.1,.18),dark=0x1b1e25,pant=pal&&pal.pant?new THREE.Color(pal.pant).getHex():c1.clone().offsetHSL(0,-.4,-.33).getHex(),skin=pal&&pal.skin?pal.skin:pick([0xe0ac86,0xc98f68,0xa86f4c,0x7a4e33,0xf1c6a5]);
   const acc=c2.getHex(),prim=c1.getHex(),prim2=c1.clone().offsetHSL(0,0,-.1).getHex();
@@ -1880,7 +1888,7 @@ function makeRider(color,name,pal){
   skate.visible=false;
   const chute=new THREE.Group();chute.position.y=4.75;root.add(chute);
   const canopy=new THREE.Group(),rig=new THREE.Group();chute.add(canopy,rig);let clines,slider;
-  {const NC=9,SP=6.7,CH=2.75,ARC=1.02,R=SP/ARC,NX=NC*6,NZ=14,P2=[],C2=[],I2=[];const pal=[acc,prim,prim,prim,0xf4f4f4,prim,prim,prim,acc].map(c=>new THREE.Color(c));
+  {const NC=9,SP=6.2,CH=2.6,ARC=1.02,R=SP/ARC,NX=NC*6,NZ=14,P2=[],C2=[],I2=[];const pal=[acc,prim,prim,prim,0xf4f4f4,prim,prim,prim,acc].map(c=>new THREE.Color(c));
     const thick=u=>lerp(.17,.34,ssj(0,.2,u))*Math.pow(1-ssj(.2,1,u),.85)+.012;
     const pt=(xu,u,top)=>{const x=(xu-.5)*SP,cf=(xu*NC)%1,bul=Math.sin(cf*Math.PI)*.07*(1-u*.5);const y=top?thick(u)*.68+bul:-thick(u)*.32-bul*.2;const a=x/R,rr=R+y;return[Math.sin(a)*rr,Math.cos(a)*rr-R,CH*(.42-u)-Math.abs(xu-.5)*.25]};
     // extradorso e intradorso
@@ -1899,15 +1907,16 @@ function makeRider(color,name,pal){
     cmat.onBeforeCompile=sh=>{Object.assign(sh.uniforms,FOGU);sh.fragmentShader=sh.fragmentShader.replace('#include <emissivemap_fragment>','#include <emissivemap_fragment>\ntotalEmissiveRadiance+=diffuseColor.rgb*uSunCol*(.3+.5*max(uSunDir.y,0.));')};cmat.customProgramCacheKey=()=>'canopy';
     mk(cgeo,cmat,canopy);
     // linhas em cascata: 4 fileiras (A,B → tirante dianteiro; C,D → tirante traseiro)
-    const lp=[],RY=-3.2,rz=[.035,.035,-.035,-.035],rows=[.07,.3,.56,.82];
+    const lp=[],RY=-3.2,rz=[.035,0,-.035],rows=[.08,.44,.8];
     rows.forEach((u,ri)=>{for(const sd of[-1,1]){const rs=[sd*.2,RY,rz[ri]];const ribs=sd<0?[0,1,2,3,4]:[9,8,7,6,5];for(const grp of[[ribs[0],ribs[1]],[ribs[2],ribs[3]],[ribs[4]]]){const at=grp.map(ci=>pt(ci/NC,u,0));const mx=at.reduce((s2,a)=>s2+a[0],0)/at.length,my=at.reduce((s2,a)=>s2+a[1],0)/at.length,mz=at.reduce((s2,a)=>s2+a[2],0)/at.length;
         const cx=lerp(rs[0],mx,.56),cy=lerp(rs[1],my,.56),cz=lerp(rs[2],mz,.56);lp.push(rs[0],rs[1],rs[2],cx,cy,cz);for(const a of at)lp.push(cx,cy,cz,a[0],a[1],a[2])}}});
     for(const sd of[-1,1]){const ribs=sd<0?[0,1.5,3]:[9,7.5,6];const j=[sd*1.25,-1.15,-CH*.5];lp.push(sd*.22,RY+.2,-.08,...j);for(const ci of ribs){const a=pt(ci/NC,1,0);lp.push(...j,...a)}}
-    const lg=new THREE.BufferGeometry();lg.setAttribute('position',new THREE.Float32BufferAttribute(lp,3));clines=new THREE.LineSegments(lg,new THREE.LineBasicMaterial({color:0x2e333c,transparent:true,opacity:.42}));canopy.add(clines);
+    const lg=new THREE.BufferGeometry();lg.setAttribute('position',new THREE.Float32BufferAttribute(lp,3));clines=new THREE.LineSegments(lg,M_CLINE);canopy.add(clines);
     // tirantes, slider e pilotinho recolhido
     slider=new THREE.Object3D();rig.add(slider);
   }
   chute.visible=false;
+  const blob=new THREE.Mesh(BLOB_GEO,M_BLOB);blob.renderOrder=1;blob.visible=false;root.add(blob);
   const bflame=new THREE.Mesh(RG.bflame,M_FLAME);bflame.position.set(0,1.1,-.5);root.add(bflame);
   const shield=new THREE.Mesh(RG.shield,M_SHIELD);shield.position.y=1;root.add(shield);
   const stars=new THREE.Group();stars.position.y=2.15;root.add(stars);for(let k=0;k<4;k++){const s=new THREE.Mesh(RG.star,M_STAR);const a=k/4*Math.PI*2;s.position.set(Math.cos(a)*.35,0,Math.sin(a)*.35);stars.add(s)}
@@ -1919,7 +1928,7 @@ function makeRider(color,name,pal){
   const badgeParts=[bk,bkI,hb,cb];badgeParts.forEach(o=>o.visible=false);
   const tag=nameTag(name,color);tag.position.y=2.9;root.add(tag);
   root.scale.setScalar(1.5);
-  return{root,bank,spin,pelvis,spine,neck,armL,armR,foreL,foreR,legL,legR,shinL,shinR,fins:[finL,finR],vpole,skate,chute,canopy,rig,clines,slider,boat,oarL,oarR,surf,faceM,gog,skin,ski,polesL,polesR,board,bike,wF,wR,crank,wings,jets,bflame,shield,stars,tag,badgeM,badgeParts,
+  return{root,bank,spin,pelvis,spine,neck,armL,armR,foreL,foreR,legL,legR,shinL,shinR,fins:[finL,finR],vpole,skate,chute,canopy,rig,clines,slider,blob,boat,oarL,oarR,surf,faceM,gog,skin,ski,polesL,polesR,board,bike,wF,wR,crank,wings,jets,bflame,shield,stars,tag,badgeM,badgeParts,
     bodyMat,helmMat,paintMat,wingMat,skiMat,mats:[bodyMat,helmMat,paintMat,wingMat,skiMat,badgeM,ringM,faceM]};
 }
 function wingGeo(){
@@ -1945,29 +1954,29 @@ function poseRider(r,t,standing){
   const m=r.m,mod=r.mod,P=m.pelvis,Sp=m.spine;
   P.rotation.set(0,0,0);P.position.set(0,.93,0);Sp.rotation.set(0,0,0);m.neck.rotation.set(0,0,0);
   for(const l of[m.armL,m.armR,m.foreL,m.foreR,m.legL,m.legR,m.shinL,m.shinR])l.rotation.set(0,0,0);
-  const sp=clamp(r.v/30,0,1.5),br=Math.sin(t*2+r.phase)*.02;
+  const sp=clamp(r.v/30,0,1.5),br=Math.sin(t*2+r.phase)*.02,cn=r.cvN||0,bz=m.bank.rotation.z;
   const crouch=(a)=>{m.legL.rotation.x=m.legR.rotation.x=-a;m.shinL.rotation.x=m.shinR.rotation.x=a*2;P.position.y=.88*Math.cos(a)+.08};
-  if(mod==='ski'){const a=.42+sp*.12+Math.sin(t*3.2+r.phase)*.04;crouch(a);Sp.rotation.x=.35+sp*.1;m.neck.rotation.x=-.35;
-    const sw=Math.sin(t*3+r.phase)*.2;m.armL.rotation.x=-.45+sw;m.armR.rotation.x=-.45-sw;m.foreL.rotation.x=m.foreR.rotation.x=-.7;m.armL.rotation.z=.18;m.armR.rotation.z=-.18;
+  if(mod==='ski'){const a=.4+sp*.1+Math.abs(cn)*.2+Math.sin(t*3.2+r.phase)*.02;crouch(a);Sp.rotation.x=.35+sp*.1;Sp.rotation.z=-bz*.5;Sp.rotation.y=cn*.18;m.neck.rotation.x=-.35;m.neck.rotation.z=-bz*.3;
+    const sw=cn*.3;m.armL.rotation.x=-.5+sw;m.armR.rotation.x=-.5-sw;m.foreL.rotation.x=m.foreR.rotation.x=-.7;m.armL.rotation.z=.2+Math.max(0,bz)*.6;m.armR.rotation.z=-.2+Math.min(0,bz)*.6;
     m.polesL.rotation.x=m.polesR.rotation.x=.9}
-  else if(mod==='snowboard'){P.rotation.y=1.38;const a=.45+Math.sin(t*2.4+r.phase)*.05;crouch(a);m.legL.rotation.z=.16;m.legR.rotation.z=-.16;Sp.rotation.x=.22;Sp.rotation.y=-.35;m.neck.rotation.y=-1.0;
-    m.armL.rotation.z=.85+Math.sin(t*2+r.phase)*.15;m.armR.rotation.z=-.7;m.armL.rotation.x=m.armR.rotation.x=-.3;m.foreL.rotation.x=m.foreR.rotation.x=-.4}
+  else if(mod==='snowboard'){P.rotation.y=1.38;const a=.42+Math.abs(cn)*.24+Math.sin(t*2.4+r.phase)*.02;crouch(a);m.legL.rotation.z=.16;m.legR.rotation.z=-.16;Sp.rotation.x=.22+Math.abs(cn)*.1;Sp.rotation.y=-.35+cn*.22;m.neck.rotation.y=-1.0;
+    m.armL.rotation.z=.85+cn*.3+Math.sin(t*2+r.phase)*.05;m.armR.rotation.z=-.7+cn*.3;m.armL.rotation.x=m.armR.rotation.x=-.3;m.foreL.rotation.x=m.foreR.rotation.x=-.4}
   else if(mod==='bike'){P.position.set(0,1.0,-.22);const pd=r.pedal;const ps=Math.sin(pd)*.32,pc=Math.cos(pd)*.25;
     m.legL.rotation.x=-1.25+ps;m.shinL.rotation.x=1.35-pc-ps*.4;m.legR.rotation.x=-1.25-ps;m.shinR.rotation.x=1.35+pc+ps*.4;
-    Sp.rotation.x=.85;m.neck.rotation.x=-.75;m.armL.rotation.x=m.armR.rotation.x=-1.05;m.foreL.rotation.x=m.foreR.rotation.x=-.35;m.armL.rotation.z=.22;m.armR.rotation.z=-.22;m.crank.rotation.x=pd}
+    Sp.rotation.x=.85+Math.sin(pd*2)*.03;Sp.rotation.z=Math.sin(pd)*.05-bz*.3;P.position.x=Math.sin(pd)*.025;m.neck.rotation.x=-.75;m.neck.rotation.z=-bz*.3;m.armL.rotation.x=m.armR.rotation.x=-1.05;m.foreL.rotation.x=m.foreR.rotation.x=-.35;m.armL.rotation.z=.22;m.armR.rotation.z=-.22;m.crank.rotation.x=pd}
   else if(mod==='escalada'){const c=r.climb,a=Math.sin(c);P.position.set(0,.95,0);Sp.rotation.x=-.06;m.neck.rotation.x=-.5;
     m.armL.rotation.x=-2.55-a*.45;m.foreL.rotation.x=-.35-Math.max(0,a)*.75;m.armR.rotation.x=-2.55+a*.45;m.foreR.rotation.x=-.35-Math.max(0,-a)*.75;m.armL.rotation.z=.3;m.armR.rotation.z=-.3;
     m.legL.rotation.x=-.5-Math.max(0,-a)*.8;m.shinL.rotation.x=.8+Math.max(0,-a)*.7;m.legR.rotation.x=-.5-Math.max(0,a)*.8;m.shinR.rotation.x=.8+Math.max(0,a)*.7;m.legL.rotation.z=.25;m.legR.rotation.z=-.25}
   else if(mod==='vara'){const u=r.vaultU;if(u!=null){P.position.y=.92;Sp.rotation.x=-.35;m.armL.rotation.x=m.armR.rotation.x=-2.8;m.foreL.rotation.x=m.foreR.rotation.x=-.15;const k=Math.sin(Math.PI*Math.min(u/.85,1));m.legL.rotation.x=m.legR.rotation.x=-1.6*k;m.shinL.rotation.x=m.shinR.rotation.x=.4*(1-k)}
     else{const c=r.pedal*1.25;crouch(.12);Sp.rotation.x=.28;m.legL.rotation.x=Math.sin(c)*.95-.1;m.legR.rotation.x=-Math.sin(c)*.95-.1;m.shinL.rotation.x=.4+Math.max(0,-Math.sin(c))*1.3;m.shinR.rotation.x=.4+Math.max(0,Math.sin(c))*1.3;m.armL.rotation.x=m.armR.rotation.x=-.95;m.foreL.rotation.x=m.foreR.rotation.x=-.7;m.armL.rotation.z=-.15;m.armR.rotation.z=.15}}
-  else if(mod==='skate'){const lv=clamp(r.latV||0,-3,3);P.rotation.y=.95;crouch(.98);P.position.y+=.11;m.legL.rotation.z=.12;m.legR.rotation.z=-.12;Sp.rotation.x=.78;Sp.rotation.y=-.38;Sp.rotation.z=lv*.04;m.neck.rotation.x=-.85;m.neck.rotation.y=-.62;
+  else if(mod==='skate'){const lv=clamp(r.latVT||0,-3,3);P.rotation.y=.95;crouch(.98-Math.abs(cn)*.14);P.position.y+=.11;m.legL.rotation.z=.12;m.legR.rotation.z=-.12;Sp.rotation.x=.78;Sp.rotation.y=-.38;Sp.rotation.z=lv*.04;m.neck.rotation.x=-.85;m.neck.rotation.y=-.62;
     m.armL.rotation.x=m.armR.rotation.x=.75;m.armL.rotation.z=.1;m.armR.rotation.z=-.1;m.foreL.rotation.x=m.foreR.rotation.x=-.25}
   else if(mod==='paraquedas'){
     if(r.grounded){const c=(r.stroke||0)*1.35,sw=Math.sin(c);P.position.y=.93+Math.abs(Math.cos(c))*.05;Sp.rotation.x=.2;m.neck.rotation.x=-.1;m.legL.rotation.x=-sw*.8;m.legR.rotation.x=sw*.8;m.shinL.rotation.x=.25+Math.max(0,sw)*1.25;m.shinR.rotation.x=.25+Math.max(0,-sw)*1.25;
       m.armL.rotation.x=sw*.85;m.armR.rotation.x=-sw*.85;m.foreL.rotation.x=m.foreR.rotation.x=-1.3;m.armL.rotation.z=.14;m.armR.rotation.z=-.14}
     else if(r.chuteOpen){const fl=r.flare||0,sw=Math.sin(t*1.3+r.phase)*.06;P.position.y=.96;Sp.rotation.x=-.06;m.neck.rotation.x=.12-fl*.2;
       m.legL.rotation.x=lerp(-.55,-.2,fl)+sw;m.legR.rotation.x=lerp(-.48,-.2,fl)-sw;m.shinL.rotation.x=lerp(.75,.3,fl);m.shinR.rotation.x=lerp(.68,.3,fl);m.legL.rotation.z=.07;m.legR.rotation.z=-.07;
-      const st=clamp((r.latV||0)*.12,-.35,.35);m.armL.rotation.x=lerp(-2.25,-.35,fl)+Math.max(0,st)*1.1;m.armR.rotation.x=lerp(-2.25,-.35,fl)+Math.max(0,-st)*1.1;m.armL.rotation.z=lerp(.42,.3,fl);m.armR.rotation.z=-lerp(.42,.3,fl);m.foreL.rotation.x=m.foreR.rotation.x=lerp(-.75,-.25,fl)}
+      const st=clamp((r.latA||0)*.14,-.5,.5);m.armL.rotation.x=lerp(-2.25,-.35,fl)+Math.max(0,-st)*1.6;m.armR.rotation.x=lerp(-2.25,-.35,fl)+Math.max(0,st)*1.6;m.legL.rotation.z-=bz*.5;m.legR.rotation.z-=bz*.5;Sp.rotation.z=-bz*.4;m.armL.rotation.z=lerp(.42,.3,fl);m.armR.rotation.z=-lerp(.42,.3,fl);m.foreL.rotation.x=m.foreR.rotation.x=lerp(-.75,-.25,fl)}
     else{P.position.set(0,1,0);P.rotation.x=Math.PI/2*.94;Sp.rotation.x=-.18;m.armL.rotation.z=1.38;m.armR.rotation.z=-1.38;m.armL.rotation.x=m.armR.rotation.x=-.4;m.foreL.rotation.x=m.foreR.rotation.x=-1.45;m.legL.rotation.z=.3;m.legR.rotation.z=-.3;m.legL.rotation.x=m.legR.rotation.x=.15;m.shinL.rotation.x=m.shinR.rotation.x=1.25;m.neck.rotation.x=-1.25;const f=Math.sin(t*9+r.phase)*.04;m.armL.rotation.z+=f;m.armR.rotation.z-=f}}
   else if(mod==='remo'){const ph=((r.stroke||0)/(2*Math.PI))%1,dr=ph<.42?ph/.42:1-(ph-.42)/.58,dk=smooth(0,1,dr);P.position.set(0,.33,lerp(-.38,.28,dk));P.rotation.y=Math.PI;
     m.legL.rotation.x=m.legR.rotation.x=lerp(-2.3,-1.52,dk);m.shinL.rotation.x=m.shinR.rotation.x=lerp(2.25,.15,dk);m.legL.rotation.z=.06;m.legR.rotation.z=-.06;
@@ -1977,12 +1986,15 @@ function poseRider(r,t,standing){
     m.armL.rotation.x=m.armR.rotation.x=-1.38;m.armL.rotation.z=.32;m.armR.rotation.z=-.1;m.foreL.rotation.x=m.foreR.rotation.x=-.25}
   else if(mod==='nado'&&(r.wade||0)>.5){const c=r.stroke*1.35,sw=Math.sin(c);P.position.y=.93+Math.abs(Math.cos(c))*.05;Sp.rotation.x=.22;m.neck.rotation.x=-.12;
     m.legL.rotation.x=-sw*.8;m.legR.rotation.x=sw*.8;m.shinL.rotation.x=.25+Math.max(0,sw)*1.25;m.shinR.rotation.x=.25+Math.max(0,-sw)*1.25;m.armL.rotation.x=sw*.85;m.armR.rotation.x=-sw*.85;m.foreL.rotation.x=m.foreR.rotation.x=-1.35;m.armL.rotation.z=.14;m.armR.rotation.z=-.14}
-  else if(mod==='nado'){P.position.set(0,1,0);P.rotation.x=Math.PI/2;const c=r.stroke;m.armL.rotation.x=c;m.armR.rotation.x=c+Math.PI;
+  else if(mod==='nado'){P.position.set(0,1,0);P.rotation.x=Math.PI/2;const c=r.stroke;P.rotation.z=Math.sin(c)*.07;m.armL.rotation.x=c;m.armR.rotation.x=c+Math.PI;
     m.foreL.rotation.x=-.7*Math.max(0,Math.sin(c));m.foreR.rotation.x=-.7*Math.max(0,Math.sin(c+Math.PI));Sp.rotation.y=Math.sin(c)*.35;m.neck.rotation.x=-1.05;m.neck.rotation.y=Math.sin(c)*.5;
     const k=Math.sin(c*3)*.28;m.legL.rotation.x=k;m.legR.rotation.x=-k;m.shinL.rotation.x=.15+Math.max(0,-k);m.shinR.rotation.x=.15+Math.max(0,k)}
   else if(standing){crouch(.08);m.armL.rotation.z=.25+br;m.armR.rotation.z=-.25-br;m.foreL.rotation.x=m.foreR.rotation.x=-.2}
   else{P.position.set(0,1,0);P.rotation.x=Math.PI/2;const f=Math.sin(t*2.2+r.phase)*.05;m.armL.rotation.z=1.42+f;m.armR.rotation.z=-1.42-f;m.armL.rotation.x=m.armR.rotation.x=.1;m.legL.rotation.z=.15;m.legR.rotation.z=-.15;m.neck.rotation.x=-1.05}
   Sp.rotation.x+=br;
+  // comemoração ao cruzar a chegada
+  if(r.finished&&!r.out&&G.raceT-r.time<5&&(mod==='ski'||mod==='snowboard'||mod==='skate'||mod==='bike'||(mod==='paraquedas'&&r.grounded)||(mod==='nado'&&(r.wade||0)>.5))){const pu=Math.sin(t*9+r.phase)*.2;
+    m.armR.rotation.set(-2.7+pu,0,-.3);m.foreR.rotation.x=-.35;if(mod!=='bike'){m.armL.rotation.set(-2.7-pu,0,.3);m.foreL.rotation.x=-.35}Sp.rotation.x-=.15;m.neck.rotation.x=.15}
 }
 
 // ======================================================================
@@ -2048,7 +2060,7 @@ function applyAvatar(r,img,url,isPhoto=true){
   if(isPhoto&&!r.isBot){const ft=new THREE.CanvasTexture(faceCanvas(img,m.skin));ft.colorSpace=THREE.SRGBColorSpace;ft.anisotropy=4;if(m.faceM.map)m.faceM.map.dispose();m.faceM.map=ft;m.faceM.needsUpdate=true;m.gog.position.set(0,.272,.07);m.gog.rotation.x=-.7}
   r.avatarUrl=url;r.avatarImg=img;
 }
-function disposeRider(m){scene.remove(m.root);m.root.traverse(o=>{if(o.isSkinnedMesh)o.skeleton.dispose();if(o.isSprite){o.material.map.dispose();o.material.dispose()}else if(o.isMesh&&o.geometry&&!Object.values(RG).includes(o.geometry))o.geometry.dispose()});m.mats.forEach(x=>{if(x.map)x.map.dispose();x.dispose()})}
+function disposeRider(m){scene.remove(m.root);m.root.traverse(o=>{if(o.isSkinnedMesh)o.skeleton.dispose();if(o.isSprite){o.material.map.dispose();o.material.dispose()}else if(o.isMesh&&o.geometry&&o.geometry!==BLOB_GEO&&!Object.values(RG).includes(o.geometry))o.geometry.dispose()});m.mats.forEach(x=>{if(x.map)x.map.dispose();x.dispose()})}
 function rebuildRider(r,color,pal){const old=r.m;r.color=color;r.m=makeRider(color,r.name,pal);r.root=r.m.root;scene.add(r.root);r.root.position.copy(old.root.position);r.root.quaternion.copy(old.root.quaternion);disposeRider(old);r.mod='';}
 function avatarHTML(r,sz=20){return r.avatarUrl?`<img class="av" alt="" src="${esc(r.avatarUrl)}" style="width:${sz}px;height:${sz}px;border-color:${r.color}">`:`<span class="av" style="width:${sz}px;height:${sz}px;background:${r.color};border-color:${r.color}"></span>`}
 function createRacer(login,name,color,isBot){
@@ -2060,13 +2072,16 @@ function createRacer(login,name,color,isBot){
   return r;
 }
 function removeRacer(r){disposeRider(r.m);racers.delete(r.login)}
-function resetRacers(){let k=0;for(const r of racers.values()){r.s=START_S-5-Math.floor(k/5)*3.6;r.lat=((k%5)-2)*2.4;r.latT=r.lat;r.v=0;r.finished=false;r.place=0;r.time=0;for(const f in r.fx)r.fx[f]=0;r.lane=k;r.cd={};r.air=null;r.vb=null;r.vaultU=null;r.coins=0;r.out=false;r.landed=false;r.steered=false;r.chuteT=null;r.tdS=null;r.grounded=false;r.hop=0;r.skill=rand(.95,1.05);r.mod='';r.botT=rand(3,7);k++}}
+function resetRacers(){let k=0;for(const r of racers.values()){r.s=START_S-5-Math.floor(k/5)*3.6;r.lat=((k%5)-2)*2.4;r.latT=r.lat;r.v=0;r.finished=false;r.place=0;r.time=0;for(const f in r.fx)r.fx[f]=0;r.lane=k;r.cd={};r.air=null;r.vb=null;r.vaultU=null;r.coins=0;r.out=false;r.latV=0;r.latA=0;r.latVT=0;r.cvA=0;r.landed=false;r.steered=false;r.chuteT=null;r.tdS=null;r.grounded=false;r.hop=0;r.skill=rand(.95,1.05);r.mod='';r.botT=rand(3,7);k++}}
 const TA={pos:new V3(),tan:new V3(),side:new V3(),mod:'',surface:'',seg:0,lu:0,ground:0,i:0};
 const CTA={pos:new V3(),tan:new V3(),side:new V3(),mod:'',surface:'',seg:0,lu:0,ground:0,i:0};
 function trackAt(s,o){const S=W.S,f=clamp(s/DS,0,S.length-1.0001),i=f|0,t=f-i,a=S[i],b=S[i+1];
   o.pos.lerpVectors(a.p,b.p,t);o.tan.lerpVectors(a.t,b.t,t).normalize();o.side.lerpVectors(a.sd,b.sd,t).normalize();
   o.mod=a.mod;o.surface=a.surface;o.seg=a.seg;o.lu=a.lu;o.last=a.last;o.ground=lerp(a.ground,b.ground,t);o.i=i;return o}
 const _look=new V3(),_v=new V3();
+// curvas em S por modalidade: [amplitude em metros, frequência em rad/s] e quanto o corpo inclina na curva
+const CARVE={snowboard:[1.7,2.0],ski:[1.3,2.6],skate:[.9,1.7],bike:[.45,1.5],windsurf:[1.6,.8],paraquedas:[1.2,.55],wingsuit:[1.2,.7],rocket:[.8,.9],nado:[.3,1.1]},CARVE0=[0,1];
+const BANKG={snowboard:1.05,ski:.9,skate:.85,bike:.8,wingsuit:1.1,rocket:1.1,paraquedas:.45,windsurf:.5,nado:.6};
 function updateRacer(r,dt,t){
   const e=r.fx;for(const k in e)if(e[k]>0)e[k]=Math.max(0,e[k]-dt);
   trackAt(r.s,TA);
@@ -2081,7 +2096,13 @@ function updateRacer(r,dt,t){
   if(G.state==='race'||r.finished)r.s=Math.min(r.s+r.v*dt,W.L-6);
   if(G.state==='race'){r.latTimer-=dt;if(r.latTimer<=0){r.latTimer=rand(1.2,3.6);r.latT=rand(-1,1)*M.lat}}
   if(TA.mod==='remo')r.latT=(((r.lane||0)%8)-3.5)*2.6;
-  const pl=r.lat;r.lat=lerp(r.lat,clamp(r.latT,-M.lat,M.lat),1-Math.exp(-dt*.9));r.latV=dt>0?(r.lat-pl)/dt:0;
+  if(TA.mod==='paraquedas'&&TA.lu>.42&&TA.lu<W.bounds[TA.seg].td-.14)r.latT=((((r.lane||0)*3)%7)-3)*6.2;
+  // direção lateral com mola e aceleração limitada: curvas contínuas em vez de deslizar de lado
+  {const tl=clamp(r.latT,-M.lat,M.lat),w=1.35,ac=clamp((tl-r.lat)*w*w-2*w*r.latV,-6.5,6.5);r.latV+=ac*dt;r.lat+=r.latV*dt;
+    const CV=CARVE[TA.mod]||CARVE0,on=(G.state==='race'&&!r.finished&&e.stun<=0&&!(TA.mod==='paraquedas'&&(TA.lu<.45||TA.lu>W.bounds[TA.seg].td-.1))?1:0)*clamp(r.v/12,0,1);
+    r.cvA=lerp(r.cvA||0,CV[0]*on,1-Math.exp(-dt*1.6));r.cvP=(r.cvP==null?r.phase:r.cvP)+dt*CV[1]*(.85+.3*((r.phase*7)%1));
+    const sn=Math.sin(r.cvP);r.cvN=CV[0]?sn*r.cvA/CV[0]:0;r.cvLat=r.cvA*sn;const lv=r.latV+r.cvA*Math.cos(r.cvP)*CV[1];
+    r.latA=lerp(r.latA||0,dt>0?clamp((lv-(r.latVT||0))/dt,-12,12):0,1-Math.exp(-dt*7));r.latVT=lv}
   let jump=0;r.m.spin.rotation.set(0,0,0);
   const flyish=air||TA.mod==='nado';
   if(e.trick>0){const p=1-e.trick/1.3;if(!flyish)jump=Math.sin(p*Math.PI)*3.6;const a=smooth(.1,.9,p)*Math.PI*2;if(flyish)r.m.spin.rotation.z=a;else if(r.mod==='bike')r.m.spin.rotation.x=-a;else if(r.trickKind)r.m.spin.rotation.x=a;else r.m.spin.rotation.y=a}
@@ -2101,17 +2122,18 @@ function updateRacer(r,dt,t){
     if(r.chuteOpen){if(r.chuteT==null){r.chuteT=0;r.tdS=null;ch.rotation.set(0,0,0);if(!r.isBot&&G.state==='race')sfx('whoosh',.7)}
       r.chuteT=Math.min(1,r.chuteT+dt*.9);const k=r.chuteT;
       if(!r.grounded){r.tdS=null;ch.visible=r.m.rig.visible=r.m.clines.visible=true;cn.scale.set(.1+.9*smooth(.25,.85,k),.55+.45*smooth(.2,.7,k),.4+.6*smooth(.15,.6,k));r.m.slider.position.y=lerp(-.8,-2.75,smooth(.3,1,k));ch.rotation.y=0;
-        ch.position.set(0,4.75,0);ch.rotation.z=lerp(ch.rotation.z,clamp(-r.latV*.14,-.45,.45),1-Math.exp(-dt*3));ch.rotation.x=.1+Math.sin(t*1.2+r.phase)*.03-r.flare*.42}
+        ch.position.set(0,4.75,0);ch.rotation.z=lerp(ch.rotation.z,clamp((r.latA||0)*.1,-.45,.45),1-Math.exp(-dt*3));ch.rotation.x=.1+Math.sin(t*1.2+r.phase)*.03-r.flare*.42}
       else{if(r.tdS==null)r.tdS=r.s;const d=(r.s-r.tdS)/1.5,c=smooth(0,8,d);r.m.rig.visible=false;r.m.clines.visible=c<.2;
         ch.rotation.z=lerp(ch.rotation.z,0,1-Math.exp(-dt*4));ch.rotation.x=-.32-Math.sin(Math.PI*c)*.7+c*.28;ch.rotation.y=c*.4*(r.phase>5?1:-1);ch.position.set(0,lerp(4.75,.16,c),-d-c*1.6);cn.scale.set(lerp(1,.86,c),lerp(1,.13,c),lerp(1,.92,c));ch.visible=d<50}}
     else{ch.visible=false;r.chuteT=null}
-    if(TA.lu>pqTd-.14&&!r.steered){r.steered=true;r.latT=rand(-1,1)*(Math.random()<.5?1.3:5)}
+    if(TA.lu>pqTd-.14&&!r.steered){r.steered=true;r.latTimer=7;r.latT=rand(-1,1)*(Math.random()<.4?1.5:8)}
     if(r.grounded&&!r.landed&&G.state==='race'){r.landed=true;for(let q=0;q<10;q++)PUFF.emit(TA.pos.x+rand(-.8,.8),TA.ground+.2,TA.pos.z+rand(-.8,.8),rand(-2,2),rand(.5,2),rand(-2,2),.72,.66,.56,rand(.6,1.2),.8,.5,.5,2);
       if(Math.abs(r.lat)<2.2){r.fx.boost=Math.max(r.fx.boost,2.5);if(!r.isBot||Math.random()<.5)feed(`🎯 <b>${esc(r.name)}</b> pousou no centro do alvo! +turbo`)}}}
   else{r.steered=false;if(r.m.chute.visible)r.m.chute.visible=false;r.chuteT=null}
-  const P=r.root.position;P.copy(TA.pos).addScaledVector(TA.side,r.lat);P.y=TA.pos.y+.22+jump;
+  const P=r.root.position;P.copy(TA.pos).addScaledVector(TA.side,r.lat+(r.cvLat||0));P.y=TA.pos.y+.22+jump;
   if(r.grounded)P.y=TA.ground+.02+jump;
-  else if(air&&!standing){const env=smooth(.03,.15,TA.lu)*(pq?(1-smooth(pqTd-.16,pqTd-.03,TA.lu))*.4:(1-smooth(.8,1,TA.lu)));P.y+=Math.sin(t*1.1+r.phase)*1.6*env-.22+env*.6}
+  else if(air&&!standing){const env=smooth(.03,.15,TA.lu)*(pq?(1-smooth(pqTd-.16,pqTd-.03,TA.lu))*.4:(1-smooth(.8,1,TA.lu)));P.y+=Math.sin(t*1.1+r.phase)*1.6*env-.22+env*.6;
+    if(pq&&r.chuteOpen)P.y+=((((r.lane||0)*2)%5)-2)*1.5*smooth(.42,.52,TA.lu)*(1-smooth(pqTd-.2,pqTd-.05,TA.lu))}
   const climb=TA.mod==='escalada',swim=TA.mod==='nado';
   if(climb){_v.set(TA.tan.x,0,TA.tan.z).normalize();P.addScaledVector(_v,-.62);P.y=TA.pos.y-.3+jump;_look.copy(P).add(_v);if(e.stun>0)r.s=Math.max(r.s-dt*5,W.bounds[TA.seg].a*W.L+2)}
   else if(swim){const under=W.water&&TA.pos.y<W.water.level-1;const lv=W.water?W.water.level:TA.pos.y;r.wade=W.water&&W.water.last&&TA.last?smooth(lv-1.2,lv-.25,TA.ground):0;
@@ -2120,12 +2142,13 @@ function updateRacer(r,dt,t){
   else r.wade=0;
   if(!swim&&!climb){
   if(TA.mod==='remo'){P.y=TA.pos.y-.02+Math.sin(t*2+r.phase)*.04;_look.copy(P).add(TA.tan);const ph=((r.stroke||0)/(2*Math.PI))%1;if(ph<r.lastPh&&G.state==='race'&&camera.position.distanceToSquared(P)<140*140){for(const o of[r.m.oarL,r.m.oarR]){const bl=o.children[1];if(bl){bl.getWorldPosition(_v);puddle(_v.x,TA.pos.y,_v.z)}}}r.lastPh=ph}
-  else if(TA.mod==='windsurf'){const lv=W.water?W.water.level:TA.pos.y,tt=FOGU.uTime.value;P.y=lv+waveH(P.x,P.z,tt)+.06+jump;_look.copy(P).addScaledVector(TA.tan,1.2);_look.y=lv+waveH(_look.x,_look.z,tt)+.06+jump}
-  else _look.copy(P).add(TA.tan)}
+  else if(TA.mod==='windsurf'){const lv=W.water?W.water.level:TA.pos.y,tt=FOGU.uTime.value;P.y=lv+waveH(P.x,P.z,tt)+.06+jump;_look.copy(P).addScaledVector(TA.tan,1.2).addScaledVector(TA.side,clamp(r.latVT/Math.max(r.v,9),-.4,.4)*1.2);_look.y=lv+waveH(_look.x,_look.z,tt)+.06+jump}
+  else _look.copy(P).add(TA.tan).addScaledVector(TA.side,clamp(r.latVT/Math.max(r.v,9),-.45,.45))}
   r.root.lookAt(_look);
-  const bk=climb?0:clamp(-r.latV*(air?.12:.06),-.7,.7);r.m.bank.rotation.z=lerp(r.m.bank.rotation.z,bk,1-Math.exp(-dt*4));
+  const bk=climb||TA.mod==='remo'?0:clamp(Math.atan((r.latA||0)/9.8)*(BANKG[TA.mod]||.8),-.75,.75);r.m.bank.rotation.z=lerp(r.m.bank.rotation.z,bk,1-Math.exp(-dt*5));
   r.pedal+=dt*(r.v*.45);r.wheel-=r.v*dt/.51;r.climb=(r.climb||0)+dt*r.v*1.15;r.stroke=(r.stroke||0)+dt*(1.6+r.v*.3);
   poseRider(r,t,standing);
+  {const b=r.m.blob;b.visible=!r.out&&(isG(TA.surface)||r.grounded||r.wade>.5);if(b.visible){b.position.y=(.05-jump)/1.5;b.scale.set(1,1,TA.mod==='bike'?1.7:TA.mod==='snowboard'||TA.mod==='skate'||TA.mod==='ski'?1.35:1)}}
   if(r.mod==='bike'){r.m.wF.rotation.x=r.wheel;r.m.wR.rotation.x=r.wheel}
   if(standing||r.mod==='paraquedas')r.m.wings.visible=false;else if(air)r.m.wings.visible=true;
   r.m.bflame.visible=e.boost>0;if(e.boost>0)r.m.bflame.scale.set(1,1,.8+Math.random()*.6);

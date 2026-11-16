@@ -198,6 +198,7 @@ vec4 hfS(vec2 xz){vec2 g=(xz-uHFInfo.xy)/uHFInfo.z;vec2 i=floor(g);vec2 f=g-i;fl
 vec2 hlf=vec2(uR*.5);vec2 wxz=uCenter-hlf+mod(aOff.xy*uR-(uCenter-hlf),uR);
 vec4 hf=hfS(wxz);float dist=length(wxz-uCenter);
 float keep=step(aOff.w,${cv?'hf.b':'hf.g'})*(1.-smoothstep(uR*.34,uR*.5,dist));
+${cv?'':'keep*=(1.-smoothstep(11.,24.,cameraPosition.y-hf.r))*(1.-smoothstep(40.,60.,distance(vec3(wxz.x,hf.r,wxz.y),cameraPosition)));'}
 float ang=aOff.z*6.2831;float s=sin(ang),c=cos(ang);
 float bh=(${cv?'.22+aOff.w*.4':'.45+aOff.w*.85'})*keep*(.7+.6*fract(aOff.z*7.3));
 float wv=sin(uTime*${cv?'.7':'1.8'}+wxz.x*.13+wxz.y*.09)*.5+.5;
@@ -211,7 +212,7 @@ vGH=aH;float fl=fract(aOff.z*91.7);
 vGTip=${cv?'fract(aOff.x*7.)>.45?vec3(.75,.12,.62):vec3(.12,.7,.66)':"fl>.988?(fract(aOff.y*53.)>.5?vec3(1.,.82,.15):vec3(.95,.95,1.)):mix(vec3(.2,.32,.06),vec3(.42,.42,.13),fract(aOff.x*31.))"};
 vGWP=transformed;`);
     sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nvarying float vGH;varying vec3 vGTip;varying vec3 vGWP;')
-      .replace('#include <map_fragment>',`diffuseColor.rgb=mix(${cv?'vec3(.05,.015,.06)':'vec3(.03,.06,.012)'},vGTip,smoothstep(0.,1.,vGH));`)
+      .replace('#include <map_fragment>',`diffuseColor.rgb=mix(${cv?'vec3(.05,.015,.06)':'vec3(.06,.105,.03)'},vGTip,smoothstep(0.,1.,vGH));`)
       .replace('#include <normal_fragment_begin>','#include <normal_fragment_begin>\nnormal=normalize(vNormal);')
       .replace('#include <emissivemap_fragment>','#include <emissivemap_fragment>\n{vec3 vd=normalize(vGWP-cameraPosition);totalEmissiveRadiance+=vGTip*uSunCol*pow(max(dot(vd,uSunDir),0.),3.)*.6*vGH;}')
       .replace('#include <lights_fragment_begin>',THREE.ShaderChunk.lights_fragment_begin.replace('getDirectionalLightInfo( directionalLight, directLight );','getDirectionalLightInfo( directionalLight, directLight );directLight.color*=rr_cloudShadow(vGWP);'));

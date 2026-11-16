@@ -9,7 +9,7 @@ const MODS={
   rocket:{label:'ROCKET WING',icon:'🚀',speed:52,slope:.07,surface:'air',lat:15},
   escalada:{label:'ESCALADA',icon:'🧗',speed:5.5,slope:0,surface:'rock',lat:5},
   nado:{label:'NADO SUBMERSO',icon:'🏊',speed:15,slope:0,surface:'water',lat:2.3},
-  paraquedas:{label:'PARAQUEDAS',icon:'🪂',speed:44,slope:0,surface:'air',lat:13},
+  paraquedas:{label:'PARAQUEDAS',icon:'🪂',speed:44,slope:0,surface:'air',lat:19},
   vara:{label:'SALTO COM VARA',icon:'🏃',speed:15,slope:.03,surface:'pista',lat:5},
   skate:{label:'SKATE DOWNHILL',icon:'🛹',speed:31,slope:.1,surface:'asfalto',lat:4},
   remo:{label:'REMO',icon:'🚣',speed:14,slope:.012,surface:'rio',lat:10},
